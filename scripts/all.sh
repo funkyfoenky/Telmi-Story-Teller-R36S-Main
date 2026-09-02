@@ -1,22 +1,18 @@
 #!/usr/bin/env bash
-# Chaîne complète Telmi-os 0.2.0 (kernel + dtb + uboot + telmi + rootfs + image).
+# Bake image 0.2.3 : prebuilts du depot + debootstrap rootfs (root).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
 
-echo "======== Telmi-os $VERSION (V30 only, image réduite) ========"
-bash "$SCRIPT_DIR/setup-toolchain.sh"
-bash "$SCRIPT_DIR/build-kernel.sh"
-bash "$SCRIPT_DIR/build-dtb.sh"
-bash "$SCRIPT_DIR/build-uboot.sh"
-bash "$SCRIPT_DIR/build-telmi.sh"
+echo "======== Telmi-os $VERSION ========"
+bash "$SCRIPT_DIR/seed-prebuilt.sh"
 bash "$SCRIPT_DIR/collect-assets.sh"
 if [[ "$(id -u)" -eq 0 ]]; then
 	bash "$SCRIPT_DIR/build-rootfs.sh"
 	bash "$SCRIPT_DIR/bake-image.sh"
 else
-	echo "NOTE : rootfs + image exigent root :"
-	echo "  wsl -u root bash $SCRIPT_DIR/build-rootfs.sh"
-	echo "  wsl -u root bash $SCRIPT_DIR/bake-image.sh"
+	echo "Le bake exige root (loop + debootstrap) :"
+	echo "  wsl -u root bash $SCRIPT_DIR/all.sh"
+	exit 1
 fi

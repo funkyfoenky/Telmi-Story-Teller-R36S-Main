@@ -17,6 +17,8 @@ need() {
 	[[ -e "$f" ]] || { echo "ERREUR : artefact manquant : $f"; exit 1; }
 }
 
+bash "$SCRIPT_DIR/seed-prebuilt.sh"
+
 need "$STAGING/boot/Image"
 need "$STAGING/boot/rk3326-r36s-v30-linux.dtb"
 need "$STAGING/opt/telmi/bin/storyTeller"
@@ -31,28 +33,13 @@ need "$ROOTFS_TAR"
 bash "$SCRIPT_DIR/collect-assets.sh"
 bash "$SCRIPT_DIR/copy-gfx-staging.sh"
 
-# U-Boot blobs (lecture seule). Fournir via TELMI_VENDOR / TELMI_UBOOT_IMAGE.
 VENDOR="${TELMI_VENDOR:-$TELMIOS/vendor/arkos4clone}"
-GZ="${TELMI_UBOOT_IMAGE:-}"
-HEAD="$CACHE/soysauce-010-head16.img"
-UBDIR="$CACHE/uboot-010"
+UBDIR="${TELMIOS}/vendor/prebuilt/uboot"
+if [[ ! -s "$UBDIR/idbloader.img" || ! -s "$UBDIR/uboot.img" ]]; then
+	UBDIR="$STAGING/uboot"
+fi
 need "$VENDOR/logo.bmp"
 need "$VENDOR/rk3326-r36s-v30-linux.dtb"
-mkdir -p "$UBDIR"
-if [[ ! -s "$UBDIR/idbloader.img" ]] || [[ ! -s "$UBDIR/uboot.img" ]]; then
-	need "$GZ"
-	if [[ ! -s "$HEAD" ]] || [[ "$(stat -c%s "$HEAD")" -lt 16000000 ]]; then
-		echo "==> extraire 16 MiB d'en-tête 0.1.0 (U-Boot) — lecture seule"
-		rm -f "$HEAD"
-		set +o pipefail
-		gzip -dc "$GZ" | dd of="$HEAD" bs=1M count=16 iflag=fullblock status=progress
-		set -o pipefail
-		[[ "$(stat -c%s "$HEAD")" -ge 16000000 ]] || { echo "ERREUR : en-tête 0.1.0 incomplet"; exit 1; }
-	fi
-	dd if="$HEAD" of="$UBDIR/idbloader.img" bs=512 skip=64 count=1024 status=none
-	dd if="$HEAD" of="$UBDIR/uboot.img" bs=512 skip=16384 count=8192 status=none
-	dd if="$HEAD" of="$UBDIR/trust.img" bs=512 skip=24576 count=8192 status=none
-fi
 need "$UBDIR/idbloader.img"
 need "$UBDIR/uboot.img"
 
@@ -167,8 +154,8 @@ sed -i 's/\r$//' "$MTELMI/autorun.inf"
 ICO=""
 for c in \
 	"$STAGING/opt/telmi/res/sdcard.ico" \
-	"$TELMIOS/content-skel/.tmp_update/res/sdcard.ico" \
-	"$PARENT/../Telmi-R36/assets/res/sdcard.ico"
+	"$TELMIOS/res/sdcard.ico" \
+	"$TELMIOS/content-skel/.tmp_update/res/sdcard.ico"
 do
 	[[ -f "$c" ]] && ICO="$c" && break
 done

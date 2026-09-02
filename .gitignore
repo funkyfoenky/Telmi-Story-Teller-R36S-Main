@@ -2,17 +2,21 @@
 /output/
 /cache/
 /sysroot/
-*.img
+# Images disque bakées — pas les blobs U-Boot vendor
+/output/*.img
+/output/*.img.gz
 *.img.gz
-*.dtb
-*.log
 *~
 .DS_Store
 Thumbs.db
-Image
+/staging/**/Image
 uInitrd
 *.o
 *.a
 *.so
 *.so.*
 *.exe
+*.log
+!vendor/prebuilt/telmi/lib/*.so
+!vendor/prebuilt/telmi/lib/*.so.*
+!vendor/prebuilt/telmi/lib/libSDL2_gfx*
