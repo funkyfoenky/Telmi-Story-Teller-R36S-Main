@@ -45,7 +45,8 @@ ensure_content_mounted() {
 	TELMI_MOUNT=/opt/telmi/bin/telmi-mount-content.sh
 	if ! mountpoint -q /telmi 2>/dev/null; then
 		if [ -x "$TELMI_MOUNT" ]; then
-			TELMI_WAIT_MAX=0 "$TELMI_MOUNT" setup || true
+			# Attendre le slot gauche (mmc externe). 0 = p3 interne gagne toujours.
+			TELMI_WAIT_MAX=12 "$TELMI_MOUNT" setup || true
 		fi
 	fi
 	mkdir -p /telmi /telmi/.tmp_update /telmi/Stories /telmi/Music /telmi/Saves/Stories /telmi/logs /mnt

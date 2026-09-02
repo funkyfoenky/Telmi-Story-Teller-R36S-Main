@@ -132,6 +132,14 @@ if [[ -f "$VENDOR/USE_DTB_SELECT_TO_SELECT_DEVICE" ]]; then
 else
 	: > "$MBOOT/USE_DTB_SELECT_TO_SELECT_DEVICE"
 fi
+echo "==> sdio slot gauche (broken-cd, 3.3V) sur DTB BOOT + consoles"
+bash "$SCRIPT_DIR/patch-sdio-left-sd.sh" \
+	"$MBOOT/rk3326-r36s-v30-linux.dtb" \
+	"$MBOOT/rk3326-odroidgo3-linux.dtb" \
+	"$MBOOT/rk3326-odroidgo2-linux.dtb" \
+	"$MBOOT/rk3326-odroidgo2-linux-v11.dtb" \
+	"$MBOOT/rk-kernel.dtb" \
+	"$MBOOT/consoles"
 echo "    $(find "$MBOOT/consoles" -name '*.dtb' | wc -l) DTB, Select-DTB.bat"
 
 echo "==> rootfs"

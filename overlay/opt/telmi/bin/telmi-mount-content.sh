@@ -27,6 +27,11 @@ blkid_dev_by_label() {
 	blkid -L "$1" 2>/dev/null || true
 }
 
+# Tous les volumes d'un label (blkid -L n'en rend qu'un — souvent p3 OS).
+blkid_devs_by_label() {
+	blkid -o device -t "LABEL=$1" 2>/dev/null || true
+}
+
 ensure_sdcard_link() {
 	mkdir -p /mnt /telmi
 	if [ ! -L /mnt/SDCARD ] && [ ! -e /mnt/SDCARD ]; then
@@ -127,16 +132,18 @@ is_fatish() {
 
 mount_by_telmi_label_external() {
 	_os=$(get_os_mmc_base) || _os=""
-	_dev=$(blkid_dev_by_label TELMI)
-	[ -n "$_dev" ] || return 1
-	if [ -n "$_os" ] && part_on_mmc "$_dev" "$_os"; then
-		return 1
-	fi
-	if try_mount_vfat "$_dev"; then
-		echo external > "$TELMI_CONTENT_MODE_FILE"
-		log_telmi "content=external dev=$_dev (label TELMI)"
-		return 0
-	fi
+	for _dev in $(blkid_devs_by_label TELMI); do
+		[ -b "$_dev" ] || continue
+		if [ -n "$_os" ] && part_on_mmc "$_dev" "$_os"; then
+			log_telmi "skip TELMI interne $_dev (OS=$_os)"
+			continue
+		fi
+		if try_mount_vfat "$_dev"; then
+			echo external > "$TELMI_CONTENT_MODE_FILE"
+			log_telmi "content=external dev=$_dev (label TELMI hors OS)"
+			return 0
+		fi
+	done
 	return 1
 }
 
@@ -171,75 +178,94 @@ mount_external_content() {
 }
 
 mount_internal_content() {
-	# dArkOS p3 = EASYROMS (jeux) — pas le contenu Telmi. Uniquement LABEL=TELMI sur la carte OS.
+	# Fallback : p3 LABEL=TELMI de la carte OS seulement.
 	_os=$(get_os_mmc_base) || _os=""
-	_dev=$(blkid_dev_by_label TELMI)
-	if [ -n "$_os" ] && [ -n "$_dev" ] && part_on_mmc "$_dev" "$_os"; then
+	[ -n "$_os" ] || return 1
+	for _dev in $(blkid_devs_by_label TELMI); do
+		[ -b "$_dev" ] || continue
+		part_on_mmc "$_dev" "$_os" || continue
 		if try_mount_vfat "$_dev"; then
 			echo internal > "$TELMI_CONTENT_MODE_FILE"
-			log_telmi "content=internal dev=$_dev (label TELMI)"
+			log_telmi "content=internal dev=$_dev (label TELMI carte OS)"
 			return 0
 		fi
-	fi
+	done
 	return 1
 }
 
 rescan_empty_mmc_hosts() {
 	for _h in /sys/class/mmc_host/mmc*; do
 		[ -d "$_h" ] || continue
-		_need=0
 		_hn=$(basename "$_h")
-		_has_block=0
-		for _c in "$_h"/mmc*/block/mmcblk*; do
-			[ -e "$_c" ] && _has_block=1 && break
-		done
-		[ "$_has_block" -eq 0 ] && _need=1
-		[ "$_need" -eq 1 ] || continue
-		if [ -w "$_h/rescan" ]; then
+		# test -w est faux sur sysfs ; écrire quand même.
+		if echo 1 > "$_h/rescan" 2>/dev/null; then
 			log_telmi "rescan $_hn"
-			echo 1 > "$_h/rescan" 2>/dev/null || true
 		fi
 	done
-	udevadm settle 2>/dev/null || true
+	udevadm settle --timeout=2 2>/dev/null || true
+}
+
+log_mmc_probe() {
+	_os=$(get_os_mmc_base) || _os="?"
+	_blks=""
+	for _b in /sys/block/mmcblk*; do
+		[ -e "$_b" ] || continue
+		_blks="$_blks $(basename "$_b")"
+	done
+	_hosts=""
+	for _h in /sys/class/mmc_host/mmc*; do
+		[ -e "$_h" ] || continue
+		_hosts="$_hosts $(basename "$_h")"
+	done
+	_devs=$(ls /dev/mmcblk* 2>/dev/null | tr '\n' ' ')
+	log_telmi "os_mmc=$_os blocks=${_blks:- none}"
+	log_telmi "mmc_host=${_hosts:- none} devs=${_devs:- none}"
+	log_telmi "TELMI=$(blkid_devs_by_label TELMI | tr '\n' ' ')"
+	dmesg 2>/dev/null | grep -iE 'mmc(blk)?[0-9]|dwmmc|dw_mmc|ff370000|ff380000' | tail -n 30 | while IFS= read -r _l; do
+		log_telmi "dmesg $_l"
+	done
 }
 
 mount_telmi_content() {
 	ensure_sdcard_link
 	mkdir -p /telmi
-	if mountpoint -q /telmi 2>/dev/null; then
-		return 0
-	fi
 	umount /telmi/.tmp_update 2>/dev/null || true
+	if mountpoint -q /telmi 2>/dev/null; then
+		_src=$(findmnt -n -o SOURCE /telmi 2>/dev/null || true)
+		_os=$(get_os_mmc_base) || _os=""
+		if [ -n "$_os" ] && [ -n "$_src" ] && part_on_mmc "$_src" "$_os"; then
+			log_telmi "deja interne $_src — tentative slot gauche"
+			umount /telmi 2>/dev/null || true
+		else
+			log_telmi "deja monte $_src"
+			return 0
+		fi
+	fi
 	umount /telmi 2>/dev/null || true
 
-	# Chemin rapide : LABEL=TELMI déjà là (pas de rescan / udev).
-	_dev=$(blkid_dev_by_label TELMI)
-	if [ -n "$_dev" ] && try_mount_vfat "$_dev"; then
-		if part_on_mmc "$_dev" "$(get_os_mmc_base 2>/dev/null || echo)"; then
-			echo internal > "$TELMI_CONTENT_MODE_FILE"
-		else
-			echo external > "$TELMI_CONTENT_MODE_FILE"
-		fi
-		return 0
-	fi
-
+	log_mmc_probe
 	_max=$(default_wait_max)
 	rescan_empty_mmc_hosts
 
+	# Slot gauche d'abord (attendre l'apparition mmc). p3 OS seulement ensuite.
 	_i=0
-	while [ "$_i" -lt "$_max" ]; do
+	while [ "$_i" -le "$_max" ]; do
 		if mount_external_content; then
 			return 0
 		fi
-		if mount_internal_content; then
-			return 0
+		if [ "$_i" -ge "$_max" ]; then
+			break
 		fi
 		sleep 1
 		_i=$((_i + 1))
-		if [ $((_i % 3)) -eq 0 ]; then
+		if [ $((_i % 2)) -eq 0 ]; then
 			rescan_empty_mmc_hosts
 		fi
 	done
+
+	if mount_internal_content; then
+		return 0
+	fi
 
 	rm -f "$TELMI_CONTENT_MODE_FILE"
 	log_telmi "content=missing (waited ${_max}s)"

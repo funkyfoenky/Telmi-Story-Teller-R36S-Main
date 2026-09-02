@@ -1,6 +1,7 @@
-# Prebuilts 0.2.3
+# Prebuilts Telmi-os 0.2.5
 
-Artefacts nécessaires au bake, extraits de la chaîne Telmi-os 0.2.3 :
+Artefacts nécessaires au bake (noyau / U-Boot / bins inchangés depuis 0.2.3 ;
+l’overlay et les DTB dual-SD sont dans le dépôt, versionnés à part) :
 
 | Fichier | Rôle |
 |---------|------|

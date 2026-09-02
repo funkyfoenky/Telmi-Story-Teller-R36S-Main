@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Place les artefacts 0.2.3 dans staging/ (Image, bins, U-Boot, DTB, gfx).
+# Place les artefacts prebuilt dans staging/ (Image, bins, U-Boot, DTB, gfx).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh

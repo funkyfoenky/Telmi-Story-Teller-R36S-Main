@@ -1,7 +1,7 @@
 # Telmi Story Teller — R36S
 
 OS dédié **histoires / musique** pour consoles clones R36S (RK3326).
-Pas d’émulation. Version actuelle : **0.2.3**.
+Pas d’émulation. Version actuelle : **0.2.5**.
 
 Ce dépôt contient **tout ce qu’il faut pour baker l’image** (hors rootfs
 Ubuntu, généré au bake par debootstrap).
@@ -9,11 +9,11 @@ Ubuntu, généré au bake par debootstrap).
 ## Bake (Linux / WSL, root)
 
 ```bash
-sudo apt install debootstrap qemu-user-static parted dosfstools e2fsprogs gzip
+sudo apt install debootstrap qemu-user-static parted dosfstools e2fsprogs gzip device-tree-compiler
 sudo bash scripts/all.sh
 ```
 
-Sortie : `output/soysauce-0.2.3.img` + `.gz`.
+Sortie : `output/soysauce-0.2.5.img` + `.gz`.
 
 Prérequis : accès réseau (miroir Ubuntu ports) pour le rootfs minbase.
 Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
@@ -25,7 +25,7 @@ Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
 | `src/` | Sources storyTeller, bootScreen, batmon |
 | `overlay/` | systemd `telmi.service`, runtime |
 | `res/` | PNG / TTF de l’interface |
-| `vendor/prebuilt/` | Kernel `Image`, U-Boot, bins Telmi 0.2.3 |
+| `vendor/prebuilt/` | Kernel `Image`, U-Boot, bins Telmi |
 | `vendor/arkos4clone/` | ~80 DTB clones + `logo.bmp` (sélecteur DTB) |
 | `dtb-selector/` | `Select-DTB.bat` (lit `consoles/` sur BOOT) |
 | `dts/` | Sources DTS v30 / v20 (rebuild optionnel) |
@@ -50,7 +50,11 @@ Les DTB du sélecteur sont des **blobs ArkOS4Clone**
 |-----------|------|
 | p1 BOOT (FAT) | `Image`, DTB, `boot.ini`, packs `consoles/` |
 | p2 root (ext4) | minbase + systemd + SDL + Telmi |
-| p3 TELMI (FAT) | Stories / Music / Saves |
+| p3 TELMI (FAT) | Stories / Music / Saves (fallback 1 carte) |
+
+Dual-SD : OS à droite, contenu à gauche (FAT32, label `TELMI`, dossiers
+`Stories/` et `Music/`). Le bake force la détection du slot gauche dans
+les DTB (`broken-cd` sur `dwmmc@ff380000`).
 
 ## Licence
 

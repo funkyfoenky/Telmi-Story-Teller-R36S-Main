@@ -1,4 +1,4 @@
-# Telmi-os 0.2.3 — selection DTB ArkOS4Clone sans casser le boot.
+# Telmi-os 0.2.5 — selection DTB ArkOS4Clone sans casser le boot.
 # Double-clic Select-DTB.bat depuis la partition BOOT.
 # Copie les .dtb, alias U-Boot Odroid, boot.ini SANS uInitrd (LF).
 $ErrorActionPreference = 'Stop'
@@ -24,7 +24,7 @@ $packs = @(Get-ChildItem -LiteralPath $consoles -Directory | Where-Object {
 } | Sort-Object Name)
 if ($packs.Count -eq 0) { throw "Aucun pack dans $consoles" }
 
-$choice = $packs | Select-Object @{N='Modele';E={$_.Name}} | Out-GridView -Title 'Telmi-os 0.2.3 — choisir le DTB' -PassThru
+$choice = $packs | Select-Object @{N='Modele';E={$_.Name}} | Out-GridView -Title 'Telmi-os 0.2.5 — choisir le DTB' -PassThru
 if (-not $choice) { Write-Host 'Annule.'; exit 0 }
 $pack = Join-Path $consoles $choice.Modele
 
@@ -69,7 +69,7 @@ if (Test-Path $tplPath) {
 odroidgoa-uboot-config
 
 ########################################################################
-# Telmi-os 0.2.3 -- LF only (no CR). Pas d'uInitrd.
+# Telmi-os 0.2.5 -- LF only (no CR). Pas d'uInitrd.
 ########################################################################
 
 # Boot Arguments
@@ -102,11 +102,11 @@ date=$(Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
 pack=$($choice.Modele)
 dtb=$dtbName
 copied=$($copied -join ',')
-bootargs=telmi-os 0.2.3 (no uInitrd)
+bootargs=telmi-os 0.2.5 (no uInitrd)
 "@
 [IO.File]::WriteAllBytes((Join-Path $boot 'TELMI-DTB-SELECT.txt'), $ascii.GetBytes($log))
 
 Write-Host "OK  $($choice.Modele)"
 Write-Host "    DTB $dtbName"
-Write-Host "    boot.ini Telmi-os 0.2.3 (pas d'uInitrd)"
+Write-Host "    boot.ini Telmi-os 0.2.5 (pas d'uInitrd)"
 Write-Host "Ejecte la SD, mets-la dans la console."

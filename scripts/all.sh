@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bake image 0.2.3 : prebuilts du depot + debootstrap rootfs (root).
+# Bake image 0.2.5 : prebuilts du depot + debootstrap rootfs (root).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
