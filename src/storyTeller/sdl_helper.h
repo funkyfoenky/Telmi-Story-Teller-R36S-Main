@@ -24,6 +24,7 @@
 #include "./app_parameters.h"
 #include "./app_volume.h"
 #include "./app_brightness.h"
+#include "./app_shutdown.h"
 
 #ifdef SOYSAUCE_FB_PRESENT
 #include "soysauce_fb.h"
@@ -320,6 +321,58 @@ void video_showBar(void) {
     }
 }
 
+static void video_writeOnScreen(const char *text, TTF_Font *font, SDL_Color color,
+                                int x, int y, int align)
+{
+    SDL_Surface *sdlText;
+    int ox;
+
+    if (font == NULL || text == NULL || screen == NULL)
+        return;
+    sdlText = TTF_RenderUTF8_Blended(font, text, color);
+    if (sdlText == NULL)
+        return;
+    ox = x;
+    if (align == SDL_ALIGN_CENTER)
+        ox = x - sdlText->w / 2;
+    else if (align == SDL_ALIGN_RIGHT)
+        ox = x - sdlText->w;
+    SDL_BlitSurface(sdlText, NULL, screen, &(SDL_Rect) {ox, y});
+    SDL_FreeSurface(sdlText);
+}
+
+void video_showShutdownDialog(void)
+{
+    int cw = 440, ch = 200;
+    int cx, cy;
+    Uint32 yellow, purple, chip;
+
+    if (!app_shutdown_isShowed() || screen == NULL)
+        return;
+
+    cx = (DISPLAY_WIDTH - cw) / 2;
+    cy = (DISPLAY_HEIGHT - ch) / 2;
+    yellow = SDL_MapRGB(screen->format, 255, 181, 0);
+    purple = SDL_MapRGB(screen->format, 37, 16, 58);
+    chip = SDL_MapRGB(screen->format, 55, 28, 82);
+
+    SDL_FillRect(screen, &(SDL_Rect) {cx - 4, cy - 4, cw + 8, ch + 8}, yellow);
+    SDL_FillRect(screen, &(SDL_Rect) {cx, cy, cw, ch}, purple);
+
+    video_writeOnScreen("Éteindre ?", fontBold24, colorOrange,
+                        DISPLAY_WIDTH / 2, cy + 36, SDL_ALIGN_CENTER);
+
+    SDL_FillRect(screen, &(SDL_Rect) {cx + 40, cy + 110, 150, 52}, yellow);
+    SDL_FillRect(screen, &(SDL_Rect) {cx + 44, cy + 114, 142, 44}, chip);
+    video_writeOnScreen("A  Oui", fontBold18, colorWhite,
+                        cx + 115, cy + 122, SDL_ALIGN_CENTER);
+
+    SDL_FillRect(screen, &(SDL_Rect) {cx + cw - 190, cy + 110, 150, 52}, yellow);
+    SDL_FillRect(screen, &(SDL_Rect) {cx + cw - 186, cy + 114, 142, 44}, chip);
+    video_writeOnScreen("B  Non", fontBold18, colorWhite,
+                        cx + cw - 115, cy + 122, SDL_ALIGN_CENTER);
+}
+
 void video_showAppLock(void) {
     if (!applock_isLocked() && !applock_isRecentlyUnlocked()) {
         return;
@@ -338,6 +391,7 @@ void video_applyToVideo(void) {
     SDL_BlitSurface(appSurface, NULL, screen, NULL);
     video_showAppLock();
     video_showBar();
+    video_showShutdownDialog();
 
 #ifdef SOYSAUCE_FB_PRESENT
     soysauce_fb_present(screen);
@@ -669,7 +723,7 @@ void video_audio_init(void) {
                  telmi_audio_path());
         system(cmd);
     }
-    system("amixer -c 0 sset Playback 80% unmute 2>/dev/null || true");
+    system("amixer -c 0 sset Playback 97% unmute 2>/dev/null || true");
     system("amixer -c 0 sset DAC unmute 2>/dev/null || true");
     system("amixer -c 0 sset Headphone unmute 2>/dev/null || true");
     system("amixer -c 0 sset Speaker unmute 2>/dev/null || true");

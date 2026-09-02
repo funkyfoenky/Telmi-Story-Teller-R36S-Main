@@ -45,11 +45,22 @@ fi
 echo "==> kernel telmi_defconfig CROSS=$CROSS jobs=$JOBS O=$LINUX_O CC=${CROSS}gcc"
 "${KMAKE[@]}" telmi_defconfig
 "${KMAKE[@]}" -j"$JOBS" Image
+# Nom kbuild 4.4 : gpio_keys.ko (pas gpio-keys). Reste un module (=m), jamais builtin.
+"${KMAKE[@]}" -j"$JOBS" drivers/input/keyboard/gpio_keys.ko
 if [[ "$LINUX_O" == "$LINUX" ]]; then
 	IMG_OUT="$LINUX/arch/arm64/boot/Image"
+	KO_OUT="$LINUX/drivers/input/keyboard/gpio_keys.ko"
 else
 	IMG_OUT="$LINUX_O/arch/arm64/boot/Image"
+	KO_OUT="$LINUX_O/drivers/input/keyboard/gpio_keys.ko"
 fi
 install -m 0644 "$IMG_OUT" "$STAGING/boot/Image"
+if [[ -f "$KO_OUT" ]]; then
+	mkdir -p "$STAGING/opt/telmi/modules"
+	install -m 0644 "$KO_OUT" "$STAGING/opt/telmi/modules/gpio_keys.ko"
+	echo "OK  $STAGING/opt/telmi/modules/gpio_keys.ko"
+else
+	echo "WARN : gpio_keys.ko absent — Vol+/- ne probe pas (manette intacte)"
+fi
 echo "OK  $STAGING/boot/Image"
 ls -lh "$STAGING/boot/Image"

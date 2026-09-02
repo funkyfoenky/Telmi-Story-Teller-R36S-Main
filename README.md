@@ -1,7 +1,7 @@
 # Telmi Story Teller — R36S
 
 OS dédié **histoires / musique** pour consoles clones R36S (RK3326).
-Pas d’émulation. Version actuelle : **0.2.5**.
+Pas d’émulation. Version actuelle : **0.3.2**.
 
 Ce dépôt contient **tout ce qu’il faut pour baker l’image** (hors rootfs
 Ubuntu, généré au bake par debootstrap).
@@ -13,10 +13,11 @@ sudo apt install debootstrap qemu-user-static parted dosfstools e2fsprogs gzip d
 sudo bash scripts/all.sh
 ```
 
-Sortie : `output/soysauce-0.2.5.img` + `.gz`.
+Sortie : `output/soysauce-0.3.2.img` + `.gz`.
 
 Prérequis : accès réseau (miroir Ubuntu ports) pour le rootfs minbase.
 Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
+`make telmi` met à jour storyTeller (volume, extinction) avant le bake.
 
 ## Contenu
 
@@ -35,6 +36,14 @@ Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
 
 Les DTB du sélecteur sont des **blobs ArkOS4Clone**
 (`vendor/arkos4clone/consoles/<modele>/*.dtb`), pas compilés depuis `dts/`.
+
+## 0.3.x (depuis 0.2.5)
+
+- Dual-SD inchangé (slot gauche `TELMI`, `broken-cd` sur `dwmmc@ff380000`)
+- Vol+/Vol− : module `gpio_keys.ko` (jamais builtin — ça cassait la manette)
+- Courbe volume : 100 % UI = l’ancien 70 % ; en dessous plus bas qu’en 0.2.8
+- Extinction : Power 1 s → popup ; **A** éteint, **B** annule
+- Mapping A/B aligné DTB (A = East, B = South)
 
 ## Rebuild optionnel
 

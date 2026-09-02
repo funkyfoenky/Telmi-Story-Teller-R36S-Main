@@ -131,6 +131,16 @@ main() {
 	_splash_pid=$!
 	ensure_content_mounted
 
+	# Vol+/Vol- = gpio_keys.ko (module). Jamais builtin : ça cassait la manette en 0.2.6.
+	if [ -f /opt/telmi/modules/gpio_keys.ko ]; then
+		if insmod /opt/telmi/modules/gpio_keys.ko 2>/tmp/telmi-gpiokeys.err; then
+			log "gpio_keys module charge"
+		else
+			log "WARN gpio_keys $(tr '\n' ' ' </tmp/telmi-gpiokeys.err 2>/dev/null)"
+		fi
+		sleep 0.3
+	fi
+
 	rm -f /tmp/.offOrder 2>/dev/null
 	[ -x "$TELMI_ROOT/bin/batmon" ] && "$TELMI_ROOT/bin/batmon" &
 
@@ -141,7 +151,7 @@ main() {
 	rm -f /var/lib/alsa/asound.state
 	log "audio_path=$_play_path"
 	amixer -c 0 cset name='Playback Path' "$_play_path" >/dev/null 2>&1 || true
-	amixer -c 0 sset Playback 80% unmute >/dev/null 2>&1 || true
+	amixer -c 0 sset Playback 97% unmute >/dev/null 2>&1 || true
 	amixer -c 0 sset DAC unmute >/dev/null 2>&1 || true
 	_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
 	echo -n "$_cap" > /tmp/percBat 2>/dev/null || true

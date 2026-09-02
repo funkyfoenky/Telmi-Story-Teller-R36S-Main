@@ -22,6 +22,7 @@
 #include "./app_brightness.h"
 #include "./app_volume.h"
 #include "./app_autosleep.h"
+#include "./app_shutdown.h"
 #include "./sdl_helper.h"
 #include "./app_selector.h"
 #include "./app_parameters.h"
@@ -41,9 +42,10 @@ static int hat_x;
 static int hat_y;
 static int synth_code = -1;
 static int synth_value;
-/* VOL deja enfonce au open (ex. zed_keyboard fantome) : ignorer jusqu au release */
-static bool ignore_vol_down;
-static bool ignore_vol_up;
+static int poll_cursor;
+/* VOL colle : par fd, pour ne pas bloquer le vrai gpio-keys. */
+static bool ignore_vol_down[INPUT_MAX];
+static bool ignore_vol_up[INPUT_MAX];
 
 static bool r36s_has_bit(unsigned long code, const unsigned long *bits, size_t bytes)
 {
@@ -160,28 +162,31 @@ static void r36s_open_inputs(void)
 
 		if (want)
 			r36s_add_input_fd(fd, evpath, name, role);
-		else
+		else {
+			fprintf(stderr, "[telmi] skip %s (%s)\n", evpath, name[0] ? name : "?");
+			fflush(stderr);
 			close(fd);
+		}
 	}
 
 	if (input_count == 0)
 		fprintf(stderr, "[telmi] aucun peripherique input\n");
 
-	/* VOL deja colle au demarrage (REPEAT sans PRESSED) */
-	ignore_vol_down = false;
-	ignore_vol_up = false;
+	/* VOL deja colle au demarrage : uniquement sur ce fd. */
+	memset(ignore_vol_down, 0, sizeof(ignore_vol_down));
+	memset(ignore_vol_up, 0, sizeof(ignore_vol_up));
 	for (int i = 0; i < input_count; i++) {
 		unsigned char key_state[(KEY_MAX + 7) / 8];
 		memset(key_state, 0, sizeof(key_state));
 		if (ioctl(input_fds[i], EVIOCGKEY(sizeof(key_state)), key_state) < 0)
 			continue;
 		if (key_state[KEY_VOLUMEDOWN / 8] & (1u << (KEY_VOLUMEDOWN % 8))) {
-			ignore_vol_down = true;
+			ignore_vol_down[i] = true;
 			fprintf(stderr, "[telmi] VOL- colle au demarrage (input[%d]) — ignore\n", i);
 			fflush(stderr);
 		}
 		if (key_state[KEY_VOLUMEUP / 8] & (1u << (KEY_VOLUMEUP % 8))) {
-			ignore_vol_up = true;
+			ignore_vol_up[i] = true;
 			fprintf(stderr, "[telmi] VOL+ colle au demarrage (input[%d]) — ignore\n", i);
 			fflush(stderr);
 		}
@@ -287,25 +292,48 @@ int main(int argc, char *argv[]) {
 	bool isMenuPressed = false;
 	bool menuPreventDefault = false;
 	bool startPowerPressed = false;
-	long startPowerPressedTime = 0;
+	Uint32 startPowerPressedMs = 0;
 
 	while (1) {
-		if (autosleep_isSleepingTime() || (startPowerPressed && (get_time() - startPowerPressedTime) > 1)) {
+		bool forceRefreshScreen = false;
+
+		if (app_shutdown_isShowed())
+			autosleep_keepAwake();
+		else if (autosleep_isSleepingTime())
 			goto exit_loop;
+
+		if (startPowerPressed && !app_shutdown_isShowed() &&
+		    (SDL_GetTicks() - startPowerPressedMs) >= 1000) {
+			startPowerPressed = false;
+			app_shutdown_show();
+			display_setScreen(true);
+			fprintf(stderr, "[telmi] shutdown popup (power 1s)\n");
+			fflush(stderr);
+			forceRefreshScreen = true;
 		}
 
-		bool forceRefreshScreen = applock_checkLock();
+		forceRefreshScreen = applock_checkLock() || forceRefreshScreen;
 		forceRefreshScreen = app_volume_checkDisplay() || forceRefreshScreen;
 		forceRefreshScreen = app_brightness_checkDisplay() || forceRefreshScreen;
-		app_update();
+		if (!app_shutdown_isShowed())
+			app_update();
 		audio_flushPendingSeek();
 
 		bool have_input = (synth_code >= 0);
 		if (!have_input && input_count > 0) {
-			if (poll(fds, input_count, 0) > 0) {
-				for (int i = 0; i < input_count; i++) {
+			int wait_ms = app_shutdown_isShowed() ? 50 : 0;
+
+			if (poll(fds, input_count, wait_ms) > 0) {
+				int n, i;
+
+				/* Un event par tour, en round-robin : le stick analogique
+				 * ne doit pas monopoliser le 1er fd (sinon Vol+/- jamais lu).
+				 * Un seul read ensuite (pas la boucle 0.2.6 qui avalait les KEY). */
+				for (n = 0; n < input_count; n++) {
+					i = (poll_cursor + n) % input_count;
 					if (fds[i].revents & POLLIN) {
 						active_fd_index = i;
+						poll_cursor = (i + 1) % input_count;
 						have_input = true;
 						break;
 					}
@@ -319,6 +347,23 @@ int main(int argc, char *argv[]) {
 				fflush(stderr);
 			}
 
+			if (app_shutdown_isShowed()) {
+				if (ev.type == EV_KEY && ev.value == RELEASED) {
+					if (ev.code == HW_BTN_A) {
+						fprintf(stderr, "[telmi] shutdown confirm\n");
+						fflush(stderr);
+						goto exit_loop;
+					}
+					if (ev.code == HW_BTN_B) {
+						fprintf(stderr, "[telmi] shutdown cancel\n");
+						fflush(stderr);
+						app_shutdown_hide();
+						autosleep_keepAwake();
+						forceRefreshScreen = true;
+					}
+				}
+				/* Power encore enfoncé : ignorer, ne pas éteindre. */
+			} else
 			switch (ev.value) {
 				case PRESSED:
 					if (HW_BTN_IS_MENU(ev.code)) {
@@ -333,13 +378,11 @@ int main(int argc, char *argv[]) {
 					}
 					switch (ev.code) {
 						case HW_BTN_POWER :
-							if (!applock_isLocked()) {
-								startPowerPressedTime = get_time();
-								startPowerPressed = true;
-							}
+							startPowerPressedMs = SDL_GetTicks();
+							startPowerPressed = true;
 							break;
 						case HW_BTN_VOLUME_DOWN :
-							if (ignore_vol_down)
+							if (active_fd_index >= 0 && ignore_vol_down[active_fd_index])
 								break;
 							if (!applock_isLocked() && !isMenuPressed) {
 								forceRefreshScreen = app_volume_down();
@@ -347,7 +390,7 @@ int main(int argc, char *argv[]) {
 							}
 							break;
 						case HW_BTN_VOLUME_UP :
-							if (ignore_vol_up)
+							if (active_fd_index >= 0 && ignore_vol_up[active_fd_index])
 								break;
 							if (!applock_isLocked() && !isMenuPressed) {
 								forceRefreshScreen = app_volume_up();
@@ -358,10 +401,14 @@ int main(int argc, char *argv[]) {
 					break;
 
 				case RELEASED:
-					if (ev.code == HW_BTN_VOLUME_DOWN)
-						ignore_vol_down = false;
-					else if (ev.code == HW_BTN_VOLUME_UP)
-						ignore_vol_up = false;
+					if (active_fd_index >= 0) {
+						if (ev.code == HW_BTN_VOLUME_DOWN)
+							ignore_vol_down[active_fd_index] = false;
+						else if (ev.code == HW_BTN_VOLUME_UP)
+							ignore_vol_up[active_fd_index] = false;
+					}
+					if (ev.code == HW_BTN_POWER)
+						startPowerPressed = false;
 					if (applock_isLocked()) {
 						if (HW_BTN_IS_MENU(ev.code)) {
 							forceRefreshScreen = applock_stopTimer() || forceRefreshScreen;
@@ -387,7 +434,6 @@ int main(int argc, char *argv[]) {
 					}
 					switch (ev.code) {
 						case HW_BTN_POWER :
-							startPowerPressed = false;
 							break;
 						case HW_BTN_LEFT :
 							app_previous();
@@ -443,9 +489,11 @@ int main(int argc, char *argv[]) {
 					if (applock_isLocked() || isMenuPressed)
 						break;
 					autosleep_keepAwake();
-					if (ev.code == HW_BTN_VOLUME_DOWN && !ignore_vol_down)
+					if (ev.code == HW_BTN_VOLUME_DOWN &&
+					    !(active_fd_index >= 0 && ignore_vol_down[active_fd_index]))
 						forceRefreshScreen = app_volume_down();
-					else if (ev.code == HW_BTN_VOLUME_UP && !ignore_vol_up)
+					else if (ev.code == HW_BTN_VOLUME_UP &&
+						 !(active_fd_index >= 0 && ignore_vol_up[active_fd_index]))
 						forceRefreshScreen = app_volume_up();
 					break;
 
@@ -454,7 +502,10 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (forceRefreshScreen) {
+		if (app_shutdown_isShowed()) {
+			if (forceRefreshScreen)
+				video_applyToVideo();
+		} else if (forceRefreshScreen) {
 			app_forceRefreshScreen();
 		}
 	}

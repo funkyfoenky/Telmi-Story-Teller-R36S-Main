@@ -3,7 +3,7 @@
 TELMIOS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PARENT="$(cd "$TELMIOS/.." && pwd)"
 export TELMIOS PARENT
-VERSION="$(tr -d '[:space:]' < "$TELMIOS/VERSION" 2>/dev/null || echo 0.2.5)"
+VERSION="$(tr -d '[:space:]' < "$TELMIOS/VERSION" 2>/dev/null || echo 0.3.2)"
 if [[ -z "${CACHE:-}" ]]; then
 	case "$TELMIOS" in
 		/mnt/*) CACHE="${HOME}/.cache/telmi-os" ;;

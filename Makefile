@@ -1,4 +1,4 @@
-# Telmi-os 0.2.5 — image V30 + packs DTB ArkOS4Clone + Select-DTB.
+# Telmi-os 0.3.2 — image V30 + packs DTB ArkOS4Clone + Select-DTB.
 SHELL := /bin/bash
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PARENT := $(abspath $(ROOT)/..)
@@ -15,7 +15,7 @@ help:
 	@echo "  make dtb        v30 (dtc) + v20 (cpp+dtc type2)"
 	@echo "  make uboot      idbloader / uboot.img / trust.img"
 	@echo "  make telmi      storyTeller bootScreen batmon"
-	@echo "  make assets     PNG/TTF -> staging"
+	@echo "  make assets     PNG/TTF depuis le labo -> staging"
 	@echo "  make rootfs     debootstrap minbase (root)"
 	@echo "  make image      output/soysauce-$(VERSION).img V30 (root)"
 	@echo "  make image-v20  output/soysauce-$(VERSION)-v20.img (root)"

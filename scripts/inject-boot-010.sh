@@ -12,8 +12,8 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 IMG="$OUTPUT/soysauce-${VERSION}.img"
-VENDOR="${TELMI_VENDOR:-$TELMIOS/vendor/arkos4clone}"
-GZ="${TELMI_UBOOT_IMAGE:-}"
+VENDOR="$PARENT/../Soysauce/vendor/arkos4clone"
+GZ="$PARENT/../Soysauce/output/soysauce-0.1.0.img.gz"
 HEAD="$CACHE/soysauce-010-head16.img"
 UBDIR="$CACHE/uboot-010"
 

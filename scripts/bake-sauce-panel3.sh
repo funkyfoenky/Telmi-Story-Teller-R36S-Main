@@ -13,7 +13,7 @@ fi
 
 SRC="$OUTPUT/soysauce-${VERSION}.img"
 OUT="$OUTPUT/soysauce-${VERSION}-sauce-panel3.img"
-VENDOR="${TELMI_VENDOR:-$TELMIOS/vendor/arkos4clone}"
+VENDOR="$PARENT/../Soysauce/vendor/arkos4clone"
 DTB="$VENDOR/consoles/sauce panel3/rk3326-r36s-sauce-panel3-linux.dtb"
 DTB_NAME="rk3326-r36s-sauce-panel3-linux.dtb"
 

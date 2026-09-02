@@ -19,10 +19,15 @@
 #include "utils/file.h"
 
 #define MAX_VOLUME 20
-/* Analog sous le plafond RK817 (~255 latch/clip). +10 % vs 0.2.1. */
-#define R36S_PLAYBACK_MAX 204
+/* Analog : 248/255 (marge latch RK817). PCM 320/256 ≈ +2 dB au max. */
+#define R36S_PLAYBACK_MAX 248
 #define R36S_PLAYBACK_FLOOR 40
-#define R36S_PCM_GAIN_MAX 220 /* /256 ≈ 86 % FS */
+#define R36S_PCM_GAIN_MAX 320
+/* Ancres 0.2.7 : 10 % UI = ancien 40 %. */
+#define R36S_OLD_PLAYBACK_MAX 204
+#define R36S_OLD_PCM_MAX 220
+/* 0.2.8 vol 18 = ~70 % UI : trop fort → devient le 100 % actuel. */
+#define R36S_VOL028_AT_70 18
 
 static int r36s_spk_ready = 0;
 static int r36s_last_hw = -1;
@@ -38,7 +43,7 @@ static void SDLCALL r36s_postmix(void *udata, Uint8 *stream, int len)
 
 	(void)udata;
 	g = r36s_pcm_gain;
-	if (g >= 256)
+	if (g == 256)
 		return;
 	for (i = 0; i < n; i++) {
 		v = ((int)s[i] * g) >> 8;
@@ -137,8 +142,8 @@ int setVolumeRaw(int value, int add)
 	return value;
 }
 
-/* 50 % UI = ancien 70 % ; le 100 % reste le plafond actuel (anti-latch RK817). */
-static int r36s_ui_to_internal(int volume)
+/* Courbe 0.2.7 (50 % UI ≈ ancien 70 %). */
+static int r36s_old_ui_to_internal(int volume)
 {
 	int mapped;
 
@@ -157,21 +162,51 @@ static int r36s_ui_to_internal(int volume)
 	return mapped;
 }
 
-/* UI 0..25 → Playback analogique FLOOR..MAX (pas 255). */
-static int r36s_volume_to_hw(int volume)
+static void r36s_old_gains(int volume, int *pcm, int *hw)
 {
-	int hw;
-	int v = r36s_ui_to_internal(volume);
+	int v = r36s_old_ui_to_internal(volume);
 
-	if (v <= 0)
-		return 0;
-	hw = R36S_PLAYBACK_FLOOR +
-	     (v * (R36S_PLAYBACK_MAX - R36S_PLAYBACK_FLOOR)) / 25;
-	if (hw < R36S_PLAYBACK_FLOOR)
-		hw = R36S_PLAYBACK_FLOOR;
-	if (hw > R36S_PLAYBACK_MAX)
-		hw = R36S_PLAYBACK_MAX;
-	return hw;
+	if (v <= 0) {
+		*pcm = 0;
+		*hw = 0;
+		return;
+	}
+	*pcm = (v * R36S_OLD_PCM_MAX) / 25;
+	if (*pcm < 8)
+		*pcm = 8;
+	*hw = R36S_PLAYBACK_FLOOR +
+	      (v * (R36S_OLD_PLAYBACK_MAX - R36S_PLAYBACK_FLOOR)) / 25;
+}
+
+/* 100 % UI = volume 0.2.8 à 70 %. En dessous : même courbe, plus basse
+ * (50 % UI ≈ 32 % de 0.2.8, donc moins fort qu'avant). */
+static void r36s_calc_gains(int volume, int *pcm, int *hw)
+{
+	int vol08, t, extra, span, pcm0, hw0;
+
+	if (volume <= 0) {
+		*pcm = 0;
+		*hw = 0;
+		return;
+	}
+	vol08 = (volume * R36S_VOL028_AT_70) / 25;
+	if (vol08 < 1)
+		vol08 = 1;
+
+	t = vol08 * 4;
+	if (t <= 25) {
+		r36s_old_gains(t, pcm, hw);
+		return;
+	}
+	r36s_old_gains(25, &pcm0, &hw0);
+	extra = t - 25;
+	span = 75;
+	*pcm = pcm0 + (extra * (R36S_PCM_GAIN_MAX - pcm0)) / span;
+	*hw = hw0 + (extra * (R36S_PLAYBACK_MAX - hw0)) / span;
+	if (*pcm > R36S_PCM_GAIN_MAX)
+		*pcm = R36S_PCM_GAIN_MAX;
+	if (*hw > R36S_PLAYBACK_MAX)
+		*hw = R36S_PLAYBACK_MAX;
 }
 
 /* volume : 0..25 (echelle Telmi / system.json) */
@@ -187,18 +222,10 @@ int setVolume(int volume)
 	r36s_ensure_spk_path();
 
 	/* Postmix : vrai gain numerique (Mix_VolumeMusic no-op sur MP3 mpg123). */
-	if (volume <= 0)
-		r36s_pcm_gain = 0;
-	else {
-		r36s_pcm_gain = (r36s_ui_to_internal(volume) * R36S_PCM_GAIN_MAX) / 25;
-		if (r36s_pcm_gain < 8)
-			r36s_pcm_gain = 8;
-	}
+	r36s_calc_gains(volume, &r36s_pcm_gain, &hw);
 	Mix_SetPostMix(r36s_postmix, NULL);
 	Mix_Volume(-1, MIX_MAX_VOLUME);
 	Mix_VolumeMusic(MIX_MAX_VOLUME);
-
-	hw = r36s_volume_to_hw(volume);
 
 	if (hw == r36s_last_hw)
 		return volume;

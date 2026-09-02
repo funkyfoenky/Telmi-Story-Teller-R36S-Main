@@ -676,7 +676,7 @@ void stories_screenUpdate(void) {
     long int cTime = get_time();
     if (cTime != storyScreenUpdateTime) {
         storyScreenUpdateTime = cTime;
-        bool isBlackScreen = !applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed();
+        bool isBlackScreen = !applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_shutdown_isShowed();
         if (isBlackScreen && cTime > storyScreenEnableEndTime) {
             if (storyScreenEnabled) {
                 /* Page illustree : quitter l'overlay et restaurer l'image */
@@ -830,7 +830,7 @@ void stories_readStage(void) {
             /* Audio sans image : mode timeline "continu" (ecran off jusqu'a interaction) */
             storyShowTimeline = storyTimelineAllowed;
             video_displayBlackScreen();
-            if (!applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed()) {
+            if (!applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_shutdown_isShowed()) {
                 display_setScreen(false);
             }
             if (storiesNightModeEnabled) {
@@ -1198,7 +1198,7 @@ void stories_previous(void) {
 }
 
 void stories_forceRefreshScreen(void) {
-    if (applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed()) {
+    if (applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_shutdown_isShowed()) {
         display_setScreen(true);
     } else {
         display_setScreen(storyScreenEnabled);

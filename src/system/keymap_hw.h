@@ -8,9 +8,10 @@
 #define HW_BTN_DOWN       BTN_DPAD_DOWN
 #define HW_BTN_LEFT       BTN_DPAD_LEFT
 #define HW_BTN_RIGHT      BTN_DPAD_RIGHT
-/* R36S V20 : silkscreen style Xbox (A=bas/South, B=droite/East) */
-#define HW_BTN_A          BTN_SOUTH
-#define HW_BTN_B          BTN_EAST
+/* R36S V30 DTB : GPIO BTN-A = 0x131 EAST, GPIO BTN-B = 0x130 SOUTH
+ * (silkscreen type Nintendo, pas Xbox). */
+#define HW_BTN_A          BTN_EAST
+#define HW_BTN_B          BTN_SOUTH
 #define HW_BTN_X          BTN_NORTH
 #define HW_BTN_Y          BTN_WEST
 #define HW_BTN_L1         BTN_TL

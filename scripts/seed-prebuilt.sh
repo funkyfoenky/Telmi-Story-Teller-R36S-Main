@@ -24,6 +24,10 @@ fi
 if [[ -d "$PRE/telmi/lib" ]]; then
 	cp -a "$PRE/telmi/lib/." "$STAGING/opt/telmi/lib/"
 fi
+if [[ -d "$PRE/telmi/modules" ]]; then
+	mkdir -p "$STAGING/opt/telmi/modules"
+	cp -a "$PRE/telmi/modules/." "$STAGING/opt/telmi/modules/"
+fi
 if [[ -d "$PRE/uboot" ]]; then
 	cp -f "$PRE/uboot/"*.img "$STAGING/uboot/" 2>/dev/null || true
 fi

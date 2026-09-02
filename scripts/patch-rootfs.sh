@@ -23,6 +23,7 @@ install -d "$ROOT/opt/soysauce/bin" "$ROOT/opt/telmi/bin" "$ROOT/opt/telmi/lib" 
 	"$ROOT/opt/telmi/res" "$ROOT/opt/telmi/telmiVersion" \
 	"$ROOT/etc/systemd/system" "$ROOT/etc/systemd/system/multi-user.target.wants" \
 	"$ROOT/etc/systemd/journald.conf.d" "$ROOT/etc/systemd/system.conf.d" \
+	"$ROOT/etc/systemd/logind.conf.d" \
 	"$ROOT/boot"
 
 cp -f "$OVERLAY/opt/telmi/bin/telmi-runtime.sh" "$ROOT/opt/telmi/bin/"
@@ -39,8 +40,16 @@ if [[ -f "$OVERLAY/etc/systemd/system.conf.d/telmi.conf" ]]; then
 	cp -f "$OVERLAY/etc/systemd/system.conf.d/telmi.conf" \
 		"$ROOT/etc/systemd/system.conf.d/"
 fi
+if [[ -f "$OVERLAY/etc/systemd/logind.conf.d/telmi.conf" ]]; then
+	cp -f "$OVERLAY/etc/systemd/logind.conf.d/telmi.conf" \
+		"$ROOT/etc/systemd/logind.conf.d/"
+fi
 rm -f "$ROOT/etc/asound.conf" "$ROOT/root/.asoundrc"
 
+if [[ -d "$STAGING/opt/telmi/modules" ]]; then
+	install -d "$ROOT/opt/telmi/modules"
+	cp -a "$STAGING/opt/telmi/modules/." "$ROOT/opt/telmi/modules/" 2>/dev/null || true
+fi
 if [[ -x "$STAGING/opt/telmi/bin/storyTeller" ]]; then
 	cp -f "$STAGING/opt/telmi/bin/"* "$ROOT/opt/telmi/bin/"
 	chmod +x "$ROOT/opt/telmi/bin/"*

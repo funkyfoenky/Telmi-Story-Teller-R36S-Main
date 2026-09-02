@@ -1,7 +1,7 @@
 odroidgoa-uboot-config
 
 ########################################################################
-# Telmi-os 0.2.5 -- LF only (no CR). Pas d'uInitrd.
+# Telmi-os 0.3.2 -- LF only (no CR). Pas d'uInitrd.
 ########################################################################
 
 # Boot Arguments
