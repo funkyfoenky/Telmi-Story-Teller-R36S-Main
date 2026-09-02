@@ -1,0 +1,20 @@
+[Unit]
+Description=Telmi Story Teller (stories / musique)
+After=local-fs.target
+Wants=local-fs.target
+DefaultDependencies=yes
+
+[Service]
+Type=simple
+ExecStart=/opt/telmi/bin/telmi-runtime.sh
+Restart=on-failure
+RestartSec=2
+TimeoutStartSec=20
+TimeoutStopSec=5
+Environment=HOME=/root
+Environment=XDG_RUNTIME_DIR=/run/user/0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

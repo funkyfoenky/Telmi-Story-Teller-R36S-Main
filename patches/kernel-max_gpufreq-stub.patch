@@ -1,0 +1,12 @@
+--- a/drivers/soc/rockchip/rockchip_opp_select.c
++++ b/drivers/soc/rockchip/rockchip_opp_select.c
+@@ -51,7 +51,8 @@
+ };
+ 
+ extern unsigned long max_ddrfreq_khz;
+-extern unsigned long max_gpufreq_khz;
++/* Mali absent (telmi_defconfig) : symbole fourni ici. */
++unsigned long max_gpufreq_khz;
+ 
+ static int opp_bin_sel = 0; /* default 0 = no override */
+ static unsigned long max_cpufreq = 1296000;

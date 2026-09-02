@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * R36S clone V20 — port 4.4 pour telmi-os.
+ *
+ * Base : rk3326-r36s-type2-with-amp (même init ST7703 B9 F1 12 83,
+ * mêmes timings 30 MHz, GPIO3, CD SD gpio0.PA3 / gpio0.PA2).
+ *
+ * Diffs tirées de Telmi-R36/boot/dtb/v20-stock.dtb (noyau 5.10) :
+ *   - reset panel gpio3.PB7 (stock) au lieu de gpio3.PD3 (type2)
+ *   - enable panel gpio0.PB5 = vcc18_lcd_n stock (pas gpio3.PA3)
+ *   - analogique 4 canaux SARADC directs (play_joystick) → direct-adc
+ *     gauche sur ch0/ch1 ; stick droit skip (ch2 = volume ADC)
+ *   - ampli SPK gpio3.PA7, spk-volume = 6
+ *   - slot gauche vqmmc/vmmc = vcc_sd 3.3 V (leçon dual-SD 0.6.6)
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20";
+	compatible = "rockchip,rk3326-r36s-linux", "rockchip,rk3326";
+};
+
+&dsi {
+	panel@0 {
+		/* v20-stock : reset-gpios = gpio3 pin 15 (RK_PB7) ACTIVE_LOW */
+		reset-gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+		/* v20-stock : power-supply = vcc18_lcd_n @ gpio0.PB5 */
+		enable-gpios = <&gpio0 RK_PB5 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&joypad {
+	/* Stock 5.10 : 4 canaux SARADC, pas d'AMUX. */
+	direct-adc;
+	skip-absr;
+	io-channels = <&saradc 0>, <&saradc 1>;
+	io-channel-names = "joy_x", "joy_y";
+};
+
+&rk817_codec {
+	spk-volume = <6>;
+};
+
+&sdmmc {
+	vqmmc-supply = <&vcc_sd>;
+	vmmc-supply = <&vcc_sd>;
+	no-1-8-v;
+};
+
+&sdio {
+	vqmmc-supply = <&vcc_sd>;
+	vmmc-supply = <&vcc_sd>;
+	no-1-8-v;
+};
