@@ -11,7 +11,8 @@ TELMI_PROFILE ?= unified
 CC ?= gcc
 STRIP ?= strip
 
-CFLAGS += -Wall -O2 -std=gnu18 -DPLATFORM_R36S
+# gnu11 : Linaro 6.3.1 (gcc 6) ne connaît pas -std=gnu18.
+CFLAGS += -Wall -O2 -std=gnu11 -DPLATFORM_R36S
 # Rétrocompat macros ; ne plus brancher de quirks dessus.
 ifeq ($(TELMI_PROFILE),v30)
 CFLAGS += -DTELMI_PROFILE_UNIFIED -DTELMI_PROFILE_NAME=\"unified\"

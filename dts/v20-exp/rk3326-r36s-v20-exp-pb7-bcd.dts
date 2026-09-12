@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — type2-with-amp + GPIOs panel V20 + broken-cd.
+ *
+ * Vanilla type2 : retroeclairage sans extinction, pas d'image, log vide.
+ *  - reset PD3 / enable PA3 = type2, pas V20 (stock = PB7, alim vcc18_lcd_n)
+ *  - GPIO CD souvent faux sur clones → rootwait, jamais d'userspace
+ *
+ * Ici : reset PB7, pas d'enable-gpios, broken-cd (cd-gpios conserve).
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-pb7-bcd";
+};
+
+&dsi {
+	panel@0 {
+		reset-gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+		/delete-property/ enable-gpios;
+	};
+};
+
+&sdmmc {
+	broken-cd;
+};

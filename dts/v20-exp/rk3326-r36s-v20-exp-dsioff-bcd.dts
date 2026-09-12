@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — DSI off + broken-cd. Extra si pb7-bcd : retro ON, log encore vide.
+ * (probe DSI qui bloque le boot avant le mount root)
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-v20-exp-pb7-bcd.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-dsioff-bcd";
+};
+
+&dsi {
+	status = "disabled";
+};

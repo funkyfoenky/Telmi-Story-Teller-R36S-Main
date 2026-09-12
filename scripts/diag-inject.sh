@@ -18,4 +18,4 @@ cat /mnt/telmi-root/etc/fstab
 echo "=== telmi wants ==="
 ls -l /mnt/telmi-root/etc/systemd/system/multi-user.target.wants/ | head
 umount /mnt/telmi-root
-bash /mnt/c/Users/Utilisateur/Downloads/Tools/HelloWorld_R36S/soysauce-git/telmi-os/scripts/inject-sd.sh
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/inject-sd.sh"

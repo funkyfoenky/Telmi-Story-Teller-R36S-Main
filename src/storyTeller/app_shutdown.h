@@ -2,6 +2,7 @@
 #define STORYTELLER_APP_SHUTDOWN__
 
 #include <stdbool.h>
+#include "./app_battery.h"
 
 static bool app_shutdown_showed = false;
 
@@ -18,6 +19,11 @@ void app_shutdown_show(void)
 void app_shutdown_hide(void)
 {
 	app_shutdown_showed = false;
+}
+
+bool app_overlay_isShowed(void)
+{
+	return app_shutdown_showed || app_battery_low_isShowed();
 }
 
 #endif

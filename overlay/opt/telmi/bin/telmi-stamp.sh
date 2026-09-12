@@ -14,7 +14,7 @@ ensure_boot() {
 ensure_boot || exit 0
 
 {
-	echo "=== Telmi ArkOS4Clone stamp ==="
+	echo "=== Telmi-R36-Main stamp ==="
 	echo "date=$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)"
 	echo "uptime=$(cat /proc/uptime 2>/dev/null || true)"
 	echo "--- bins ---"

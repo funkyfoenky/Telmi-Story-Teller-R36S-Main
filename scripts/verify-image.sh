@@ -3,7 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "$SCRIPT_DIR/common.sh"
-IMG="$OUTPUT/soysauce-${VERSION}.img"
+IMG="$OUTPUT/telmi-r36-main-${VERSION}.img"
 LOOP="$(losetup -Pf --show "$IMG")"
 trap "umount /tmp/v-boot /tmp/v-root /tmp/v-telmi 2>/dev/null; rmdir /tmp/v-boot /tmp/v-root /tmp/v-telmi 2>/dev/null; losetup -d '$LOOP'" EXIT
 mkdir -p /tmp/v-boot /tmp/v-root /tmp/v-telmi

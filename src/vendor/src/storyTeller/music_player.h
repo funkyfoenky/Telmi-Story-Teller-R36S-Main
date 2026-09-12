@@ -248,7 +248,7 @@ void musicplayer_screenUpdate(bool forceDraw) {
     long int ts = get_time();
     if (musicPlayerScreenUpdateTime != ts) {
         musicPlayerScreenUpdateTime = ts;
-        bool enableScreen = applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_shutdown_isShowed();
+        bool enableScreen = applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_overlay_isShowed();
         int inactivityTime = ts - musicPlayerLastActivity;
 
         if (inactivityTime > 10 && !enableScreen) {
@@ -306,7 +306,7 @@ void musicplayer_load(void) {
 
     bool isPaused = Mix_PlayingMusic() == 1 && Mix_PausedMusic() == 1;
 
-    audio_play(MUSICPLAYER_RESOURCES, musicPlayerTracksList[musicPlayerTrackIndex], musicPlayerTrackPosition);
+    audio_play(MUSICPLAYER_RESOURCES, musicPlayerTracksList[musicPlayerTrackIndex], musicPlayerTrackPosition, true);
 
     if (isPaused) {
         Mix_PauseMusic();
@@ -487,7 +487,7 @@ bool musicplayer_home(void) {
 }
 
 void musicplayer_forceRefreshScreen(void) {
-    bool enableScreen = applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_shutdown_isShowed();
+    bool enableScreen = applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_overlay_isShowed();
     if (!display_enabled && enableScreen) {
         display_setScreen(true);
     }

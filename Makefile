@@ -1,4 +1,4 @@
-# Telmi-os 0.3.2 — image V30 + packs DTB ArkOS4Clone + Select-DTB.
+# Telmi-os 0.3.8 — image V30 + packs DTB ArkOS4Clone + Select-DTB.
 SHELL := /bin/bash
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PARENT := $(abspath $(ROOT)/..)

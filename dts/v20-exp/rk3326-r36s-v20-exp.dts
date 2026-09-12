@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE expérimentale — ne pas fusionner dans rk3326-r36s-v20-linux.dts
+ * tant que la console n'a pas validé.
+ *
+ * Hypothèses écran noir + telmi-runtime.log vide (placeholder bake) :
+ *  1) enable-gpios gpio0.PB5 : panel-simple peut couper l'alim LCD au probe
+ *  2) vqmmc sdmmc = vcc_sd + no-1-8-v : casse le slot OS → rootwait infini
+ *
+ * Ici : pas d'enable-gpios (alim laissée comme U-Boot), sdmmc type2 d'origine,
+ * aliases mmc0=sdmmc, eMMC forcé disabled.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-noen-sd";
+	compatible = "rockchip,rk3326-r36s-linux", "rockchip,rk3326";
+
+	aliases {
+		mmc0 = &sdmmc;
+		mmc1 = &sdio;
+	};
+};
+
+&dsi {
+	panel@0 {
+		reset-gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+		/* type2 avait enable-gpios gpio3.PA3 — on l'enlève */
+		/delete-property/ enable-gpios;
+	};
+};
+
+&joypad {
+	direct-adc;
+	skip-absr;
+	io-channels = <&saradc 0>, <&saradc 1>;
+	io-channel-names = "joy_x", "joy_y";
+};
+
+&rk817_codec {
+	spk-volume = <6>;
+};
+
+/* Slot OS : I/O = vccio_sd comme type2. Ne pas coller vcc_sd ici. */
+&sdmmc {
+	vqmmc-supply = <&vccio_sd>;
+	vmmc-supply = <&vcc_sd>;
+};
+
+/* Slot gauche : leçon dual-SD, n'affecte pas le root. */
+&sdio {
+	vqmmc-supply = <&vcc_sd>;
+	vmmc-supply = <&vcc_sd>;
+	no-1-8-v;
+};
+
+&emmc {
+	status = "disabled";
+};

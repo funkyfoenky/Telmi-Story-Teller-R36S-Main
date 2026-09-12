@@ -90,14 +90,14 @@ if [[ -n "$TELDEV" ]]; then
 	cat > /mnt/telmi-content/autorun.inf <<'EOF'
 [autorun]
 icon  = .tmp_update/res/sdcard.ico
-label = TelmiOS-v1.10.1
+label = TelmiOS-v1.10.3
 EOF
 	sed -i 's/\r$//' /mnt/telmi-content/autorun.inf
 	ICO=""
 	for c in \
 		"$STAGING/opt/telmi/res/sdcard.ico" \
 		"$TELMIOS/content-skel/.tmp_update/res/sdcard.ico" \
-		"$PARENT/../Telmi-R36/assets/res/sdcard.ico"
+		"$TELMIOS/vendor/telmi-r36s/assets/res/sdcard.ico"
 	do
 		if [[ -f "$c" ]]; then
 			ICO="$c"

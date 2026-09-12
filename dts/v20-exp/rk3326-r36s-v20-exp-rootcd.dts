@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — objectif : Linux monte mmcblk0p2 et ecrit telmi-runtime.log.
+ *
+ * Constat console : DTB precedent = LED rouge clignote (noyau vivant,
+ * driver arkos4clone-led), log toujours vide = rootwait / CD GPIO faux.
+ * Lecon Telmi 0.6.2 : broken-cd sur les slots SD clones.
+ *
+ * Panel DSI OFF pour ne pas paniquer avant le MMC.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-rootcd";
+	compatible = "rockchip,rk3326-r36s-linux", "rockchip,rk3326";
+
+	aliases {
+		mmc0 = &sdmmc;
+		mmc1 = &sdio;
+	};
+
+	charge-animation {
+		status = "disabled";
+	};
+};
+
+&dsi {
+	status = "disabled";
+};
+
+&sdmmc {
+	broken-cd;
+	non-removable;
+	no-1-8-v;
+	/delete-property/ cd-gpios;
+	/delete-property/ sd-uhs-sdr12;
+	/delete-property/ sd-uhs-sdr25;
+	/delete-property/ sd-uhs-sdr50;
+	/delete-property/ sd-uhs-sdr104;
+	vqmmc-supply = <&vccio_sd>;
+	vmmc-supply = <&vcc_sd>;
+};
+
+&sdio {
+	status = "disabled";
+};
+
+&emmc {
+	status = "disabled";
+};
+
+&rk817_codec {
+	spk-volume = <6>;
+};

@@ -1,7 +1,7 @@
 # Telmi Story Teller — R36S
 
 OS dédié **histoires / musique** pour consoles clones R36S (RK3326).
-Pas d’émulation. Version actuelle : **0.3.2**.
+Pas d’émulation. Version actuelle : **0.3.8**.
 
 Ce dépôt contient **tout ce qu’il faut pour baker l’image** (hors rootfs
 Ubuntu, généré au bake par debootstrap).
@@ -13,7 +13,7 @@ sudo apt install debootstrap qemu-user-static parted dosfstools e2fsprogs gzip d
 sudo bash scripts/all.sh
 ```
 
-Sortie : `output/soysauce-0.3.2.img` + `.gz`.
+Sortie : `output/soysauce-0.3.8.img` + `.gz`.
 
 Prérequis : accès réseau (miroir Ubuntu ports) pour le rootfs minbase.
 Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
@@ -36,6 +36,13 @@ Les binaires Telmi, le noyau, U-Boot et les DTB sont déjà dans `vendor/`.
 
 Les DTB du sélecteur sont des **blobs ArkOS4Clone**
 (`vendor/arkos4clone/consoles/<modele>/*.dtb`), pas compilés depuis `dts/`.
+
+## 0.3.8
+
+- Extinction propre si batterie trop faible (overlay + `telmi-runtime`, seuil ~3530 mV)
+- Écran `low_battery.bmp` / `batteryLow.png` sur BOOT
+- U-Boot **prebuilt 0.3.7** (ne pas recompiler avec gcc 13 : écran noir sans logo)
+- L1 / L2 hasard (sélection / branche)
 
 ## 0.3.x (depuis 0.2.5)
 

@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE expérimentale — DSI coupé pour prouver que Linux atteint userspace.
+ * Si telmi-runtime.log se remplit : le hang est le panel, pas le root SD.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-v20-exp.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-dsi-off";
+};
+
+&dsi {
+	status = "disabled";
+};

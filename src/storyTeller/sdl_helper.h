@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -18,6 +19,7 @@
 #include "system/telmi_rev.h"
 #include "utils/str.h"
 
+#include "./mp3_helper.h"
 #include "./logs_helper.h"
 #include "./app_battery.h"
 #include "./app_lock.h"
@@ -26,11 +28,11 @@
 #include "./app_brightness.h"
 #include "./app_shutdown.h"
 
-#ifdef SOYSAUCE_FB_PRESENT
-#include "soysauce_fb.h"
+#ifdef TELMI_FB_PRESENT
+#include "telmi_fb.h"
 #endif
 
-#ifdef SOYSAUCE_FB_PRESENT
+#ifdef TELMI_FB_PRESENT
 #define SYSTEM_RESOURCES "/opt/telmi/res/"
 #define FALLBACK_FONT_REGULAR "/opt/telmi/res/Exo2-Regular.ttf"
 #define FALLBACK_FONT_BOLD "/opt/telmi/res/Exo2-Bold.ttf"
@@ -52,6 +54,15 @@ static SDL_Renderer *renderer = NULL;
 static Mix_Music *music;
 static double musicDuration;
 static char currentMusicPath[STR_MAX * 2];
+
+#define AUDIO_DURATION_CACHE_SIZE 128
+
+typedef struct {
+	uint64_t hash;
+	double duration;
+} audioDurationCacheEntry;
+
+static audioDurationCacheEntry audioDurationCache[AUDIO_DURATION_CACHE_SIZE];
 /* Si Mix_LoadMUS echoue : evite autoplay qui enchaine toutes les pages */
 static Uint32 audioFakeEndMs = 0;
 /* Horloge logicielle : Mix_GetMusicPosition/SetMusicPosition + thread duree
@@ -373,6 +384,39 @@ void video_showShutdownDialog(void)
                         cx + cw - 115, cy + 122, SDL_ALIGN_CENTER);
 }
 
+void video_showBatteryLowDialog(void)
+{
+    int cw = 480, ch = 200;
+    int cx, cy;
+    Uint32 yellow, purple;
+    char volt[32];
+    int mv;
+
+    if (!app_battery_low_isShowed() || screen == NULL)
+        return;
+
+    cx = (DISPLAY_WIDTH - cw) / 2;
+    cy = (DISPLAY_HEIGHT - ch) / 2;
+    yellow = SDL_MapRGB(screen->format, 255, 181, 0);
+    purple = SDL_MapRGB(screen->format, 37, 16, 58);
+
+    SDL_FillRect(screen, &(SDL_Rect) {cx - 4, cy - 4, cw + 8, ch + 8}, yellow);
+    SDL_FillRect(screen, &(SDL_Rect) {cx, cy, cw, ch}, purple);
+
+    video_writeOnScreen("Batterie trop faible", fontBold24, colorOrange,
+                        DISPLAY_WIDTH / 2, cy + 40, SDL_ALIGN_CENTER);
+    video_writeOnScreen("Branche le chargeur", fontBold18, colorWhite,
+                        DISPLAY_WIDTH / 2, cy + 90, SDL_ALIGN_CENTER);
+
+    mv = app_battery_getVoltageMv();
+    if (mv > 0)
+        snprintf(volt, sizeof(volt), "%d.%02d V", mv / 1000, (mv % 1000) / 10);
+    else
+        snprintf(volt, sizeof(volt), "%d %%", app_battery_getPercentage());
+    video_writeOnScreen(volt, fontRegular16, colorWhite60,
+                        DISPLAY_WIDTH / 2, cy + 140, SDL_ALIGN_CENTER);
+}
+
 void video_showAppLock(void) {
     if (!applock_isLocked() && !applock_isRecentlyUnlocked()) {
         return;
@@ -392,9 +436,10 @@ void video_applyToVideo(void) {
     video_showAppLock();
     video_showBar();
     video_showShutdownDialog();
+    video_showBatteryLowDialog();
 
-#ifdef SOYSAUCE_FB_PRESENT
-    soysauce_fb_present(screen);
+#ifdef TELMI_FB_PRESENT
+    telmi_fb_present(screen);
     return;
 #endif
 
@@ -564,7 +609,44 @@ double audio_getPosition(void) {
     return audioClockPosition + (SDL_GetTicks() - audioClockStartMs) / 1000.0;
 }
 
-void audio_play_path(char *soundPath, double position) {
+static uint64_t string_hash(const char *path) {
+    uint64_t h = 0xcbf29ce484222325ULL;
+    while (*path != '\0') {
+        h ^= (uint8_t)*path;
+        h *= 0x100000001b3ULL;
+        path++;
+    }
+    return h;
+}
+
+double audio_duration_cache_get(const char *path) {
+    uint64_t hash = string_hash(path);
+    double duration = -1.0;
+    int i = 0;
+    while (i < AUDIO_DURATION_CACHE_SIZE && audioDurationCache[i].hash != hash) {
+        ++i;
+    }
+    if (i < AUDIO_DURATION_CACHE_SIZE) {
+        audioDurationCacheEntry entry = audioDurationCache[i];
+        memmove(&audioDurationCache[1], &audioDurationCache[0], i * sizeof(audioDurationCache[0]));
+        audioDurationCache[0] = entry;
+        duration = entry.duration;
+    }
+    return duration;
+}
+
+void audio_duration_cache_set(const char *path, double duration) {
+    if (duration <= 0.0) {
+        return;
+    }
+    uint64_t hash = string_hash(path);
+    memmove(&audioDurationCache[1], &audioDurationCache[0],
+            (AUDIO_DURATION_CACHE_SIZE - 1) * sizeof(audioDurationCache[0]));
+    audioDurationCache[0].hash = hash;
+    audioDurationCache[0].duration = duration;
+}
+
+void audio_play_path(char *soundPath, double position, bool askDuration) {
     audio_free_music();
     music = Mix_LoadMUS(soundPath);
     if (music != NULL) {
@@ -572,11 +654,18 @@ void audio_play_path(char *soundPath, double position) {
         strncpy(currentMusicPath, soundPath, sizeof(currentMusicPath) - 1);
         currentMusicPath[sizeof(currentMusicPath) - 1] = '\0';
 
-        /* Duree : Mix_MusicDuration absent (mixer 2.0.4) → parse Xing/WAV. */
-        {
-            double d = Mix_MusicDuration(music);
-            if (d <= 0.0)
-                d = telmi_audio_file_duration(soundPath);
+        musicDuration = 0.0;
+        if (askDuration) {
+            /* cache → CBR rapide → Xing/WAV → Mix_MusicDuration (stub 2.0.4) */
+            double d = audio_duration_cache_get(soundPath);
+            if (d < 0.0) {
+                d = mp3_duration_estimate(soundPath);
+                if (d < 0.0)
+                    d = telmi_audio_file_duration(soundPath);
+                if (d <= 0.0)
+                    d = Mix_MusicDuration(music);
+                audio_duration_cache_set(soundPath, d);
+            }
             musicDuration = (d > 0.0) ? d : 0.0;
         }
 
@@ -597,10 +686,10 @@ void audio_play_path(char *soundPath, double position) {
     }
 }
 
-void audio_play(const char *dir, const char *name, double position) {
+void audio_play(const char *dir, const char *name, double position, bool askDuration) {
     char soundPath[STR_MAX * 2];
     sprintf(soundPath, "%s%s", dir, name);
-    audio_play_path(soundPath, position);
+    audio_play_path(soundPath, position, askDuration);
 }
 
 static void st_step(const char *msg) {
@@ -623,7 +712,7 @@ void video_audio_init(void) {
     display_getResolution();
 
     st_step("storyTeller: avant SDL_Init");
-#ifdef SOYSAUCE_FB_PRESENT
+#ifdef TELMI_FB_PRESENT
     /* Pas de VIDEO : kmsdrm après bootScreen fb0 n'allume plus le panneau. */
     unsetenv("SDL_VIDEODRIVER");
     sdlFlags = SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_EVENTS;
@@ -640,7 +729,7 @@ void video_audio_init(void) {
     IMG_Init(IMG_INIT_PNG);
     TTF_Init();
 
-#ifdef SOYSAUCE_FB_PRESENT
+#ifdef TELMI_FB_PRESENT
     /* XRGB (pas d'Amask) : un blit PNG RGBA compose au lieu de copier l'alpha
      * (ARGB dest + PNG transparent = jauge jaune ecrasee / invisible). */
     screen = SDL_CreateRGBSurface(0, DISPLAY_WIDTH, DISPLAY_HEIGHT, 32,
@@ -656,10 +745,10 @@ void video_audio_init(void) {
     fflush(stderr);
     if (screen != NULL) {
         SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0x25, 0x10, 0x3A));
-        soysauce_fb_present(screen);
+        telmi_fb_present(screen);
         st_step("storyTeller: fb0 present OK");
     } else {
-        soysauce_fb_fill(0x25, 0x10, 0x3A);
+        telmi_fb_fill(0x25, 0x10, 0x3A);
         st_step("storyTeller: surfaces FAIL, solid fill");
     }
     fontBold24 = TTF_OpenFont(FALLBACK_FONT_BOLD, 24);
@@ -732,7 +821,7 @@ void video_audio_init(void) {
             SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "none",
             DISPLAY_WIDTH, DISPLAY_HEIGHT);
     fflush(stderr);
-#ifndef SOYSAUCE_FB_PRESENT
+#ifndef TELMI_FB_PRESENT
     st_step("storyTeller: CreateWindow");
     window = SDL_CreateWindow("main", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         DISPLAY_WIDTH, DISPLAY_HEIGHT, SDL_WINDOW_FULLSCREEN_DESKTOP);

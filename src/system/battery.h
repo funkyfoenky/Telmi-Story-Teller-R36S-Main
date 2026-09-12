@@ -53,6 +53,64 @@ static void r36s_bat_write_perc(int pct)
 	fclose(fp);
 }
 
+int battery_getVoltageMv(void)
+{
+	static const char *volts[] = {
+		"/sys/class/power_supply/battery/voltage_now",
+		"/sys/class/power_supply/rk817-battery/voltage_now",
+		NULL
+	};
+	DIR *d;
+	struct dirent *e;
+	char path[256];
+	int i, raw;
+	int mv;
+
+	for (i = 0; volts[i]; i++) {
+		raw = r36s_bat_read_int(volts[i]);
+		if (raw > 2500) {
+			mv = (raw > 100000) ? raw / 1000 : raw;
+			if (mv >= 2000 && mv <= 5000)
+				return mv;
+		}
+	}
+
+	d = opendir("/sys/class/power_supply");
+	if (!d)
+		return -1;
+	while ((e = readdir(d)) != NULL) {
+		if (e->d_name[0] == '.')
+			continue;
+		snprintf(path, sizeof(path),
+			 "/sys/class/power_supply/%s/type", e->d_name);
+		{
+			FILE *tf = fopen(path, "r");
+			char typ[32] = {0};
+
+			if (tf) {
+				if (fgets(typ, sizeof(typ), tf) == NULL)
+					typ[0] = '\0';
+				fclose(tf);
+			}
+			if (typ[0] && strncmp(typ, "Battery", 7) != 0 &&
+			    strncmp(typ, "Unknown", 7) != 0)
+				continue;
+		}
+		snprintf(path, sizeof(path),
+			 "/sys/class/power_supply/%s/voltage_now", e->d_name);
+		raw = r36s_bat_read_int(path);
+		if (raw > 2500) {
+			mv = (raw > 100000) ? raw / 1000 : raw;
+			if (mv >= 2000 && mv <= 5000) {
+				closedir(d);
+				return mv;
+			}
+		}
+	}
+	closedir(d);
+	return -1;
+}
+
 int battery_getPercentage(void)
 {
 	static const char *caps[] = {

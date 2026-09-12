@@ -7,20 +7,36 @@ source "$SCRIPT_DIR/common.sh"
 
 if ! SYSROOT="$(resolve_sysroot)"; then
 	echo "ERREUR : sysroot introuvable."
-	echo "  Attendu : $CACHE/sysroot  ou  $LAB_SYSROOT"
+	echo "  Attendu : $CACHE/sysroot (make rootfs) ou SYSROOT=..."
 	exit 1
 fi
 export SYSROOT
 
-CC="${CC:-aarch64-linux-gnu-gcc}"
-STRIP="${STRIP:-aarch64-linux-gnu-strip}"
-if p="$(linaro_prefix 2>/dev/null)"; then
-	CC="${p}gcc"
-	STRIP="${p}strip"
+# Linaro 6.3 si vraiment gcc 6. Sinon gcc du distro + crt/headers Focal 2.31
+# (le gcc 13 Ubuntu 24 lie GLIBC_2.33/2.34 via Scrt1.o et <sys/stat.h> hôte).
+CC=""
+STRIP=""
+if p="$(linaro_prefix 2>/dev/null)" && [[ -x "${p}gcc" ]]; then
+	ver="$("${p}gcc" -dumpversion 2>/dev/null || true)"
+	if [[ "$ver" == 6.* ]]; then
+		CC="${p}gcc"
+		STRIP="${p}strip"
+	fi
 fi
-
-if ! command -v "$CC" >/dev/null 2>&1 && [[ ! -x "$CC" ]]; then
-	echo "ERREUR : $CC introuvable. sudo apt install gcc-aarch64-linux-gnu  ou  make toolchain"
+if [[ -z "$CC" ]]; then
+	CC="${CC:-aarch64-linux-gnu-gcc}"
+	STRIP="${STRIP:-aarch64-linux-gnu-strip}"
+	if ! command -v "$CC" >/dev/null 2>&1 && [[ ! -x "$CC" ]]; then
+		echo "ERREUR : $CC introuvable. sudo apt install gcc-aarch64-linux-gnu"
+		exit 1
+	fi
+	echo "==> pas de Linaro gcc 6 — headers/crt Ubuntu 20.04 (glibc 2.31)"
+	bash "$SCRIPT_DIR/setup-focal-dev.sh"
+	FOCAL_DEV="$CACHE/focal-dev"
+	FOCAL_LINK="$CACHE/focal-link"
+fi
+if [[ ! -x "$CC" ]] && ! command -v "$CC" >/dev/null 2>&1; then
+	echo "ERREUR : compilateur introuvable : $CC"
 	exit 1
 fi
 
@@ -42,9 +58,9 @@ if need_arm_sdl_config; then
 	tmp="$(mktemp -d /tmp/sdl2dev-XXXX)"
 	ok=0
 	for url in \
+		"http://ports.ubuntu.com/ubuntu-ports/pool/universe/libs/libsdl2/libsdl2-dev_2.0.10+dfsg1-3_arm64.deb" \
 		"http://ports.ubuntu.com/ubuntu-ports/pool/universe/libs/libsdl2/libsdl2-dev_2.30.0+dfsg-1ubuntu3_arm64.deb" \
-		"http://ftp.debian.org/debian/pool/main/libs/libsdl2/libsdl2-dev_2.30.12+dfsg-1_arm64.deb" \
-		"http://ports.ubuntu.com/ubuntu-ports/pool/universe/libs/libsdl2/libsdl2-dev_2.0.10+dfsg1-3_arm64.deb"
+		"http://ftp.debian.org/debian/pool/main/libs/libsdl2/libsdl2-dev_2.30.12+dfsg-1_arm64.deb"
 	do
 		echo "    $url"
 		if curl -fsSL --retry 2 -o "$tmp/pkg.deb" "$url"; then
@@ -70,6 +86,21 @@ fi
 
 EXTRA_CFLAGS="--sysroot=$SYSROOT -I$INC -I$SYSROOT/usr/include/aarch64-linux-gnu -I$SYSROOT/usr/include -I$SYSROOT/usr/include/SDL2"
 EXTRA_LDFLAGS="--sysroot=$SYSROOT -L$LIBDIR -Wl,-rpath-link,$LIBDIR -Wl,-rpath-link,$SYSROOT/lib/aarch64-linux-gnu -Wl,--allow-shlib-undefined -lm"
+if [[ -n "${FOCAL_DEV:-}" ]]; then
+	GCCINC="$("$CC" -print-file-name=include)"
+	# -B focal-link : crt1.o + libc.so 2.31 (pas Scrt1.o Ubuntu 24).
+	# -nostdinc : empêche /usr/aarch64-linux-gnu/include (stat@GLIBC_2.33).
+	EXTRA_CFLAGS="--sysroot=$SYSROOT -fno-pie -no-pie -B$FOCAL_LINK -nostdinc \
+		-isystem $GCCINC \
+		-isystem $FOCAL_DEV/usr/include/aarch64-linux-gnu \
+		-isystem $FOCAL_DEV/usr/include \
+		-I$INC -I$INC/SDL2 \
+		-isystem $SYSROOT/usr/include -isystem $SYSROOT/usr/include/SDL2"
+	EXTRA_LDFLAGS="--sysroot=$SYSROOT -no-pie -B$FOCAL_LINK \
+		-L$FOCAL_LINK -L$LIBDIR \
+		-Wl,-rpath-link,$LIBDIR -Wl,-rpath-link,$SYSROOT/lib/aarch64-linux-gnu \
+		-Wl,--allow-shlib-undefined -lm"
+fi
 
 write_sdl_gfx_wrapper() {
 	mkdir -p "$SYSROOT/usr/include/SDL2"
@@ -201,3 +232,25 @@ done
 echo "OK  $STAGING/opt/telmi/bin/"
 ls -la "$STAGING/opt/telmi/bin/"
 ls -la "$STAGING/opt/telmi/lib/" 2>/dev/null || true
+
+# Refuse un binaire qui ne tournera pas sur le rootfs (glibc 2.31).
+assert_glibc_max() {
+	local bin="$1" max="2.31" v newest
+	[[ -f "$bin" ]] || return 0
+	newest="2.0"
+	while read -r v; do
+		[[ -z "$v" ]] && continue
+		if [[ "$(printf '%s\n' "$v" "$newest" | sort -V | tail -1)" == "$v" ]]; then
+			newest="$v"
+		fi
+	done < <(readelf -V "$bin" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/^GLIBC_//' | sort -Vu)
+	echo "    $(basename "$bin") GLIBC max=$newest"
+	if [[ "$(printf '%s\n' "$newest" "$max" | sort -V | tail -1)" != "$max" ]]; then
+		echo "ERREUR : $bin exige GLIBC_$newest > $max (rootfs Telmi-os)."
+		echo "  Relancer avec make toolchain && make telmi (Linaro 6.3.1)."
+		exit 1
+	fi
+}
+for b in bootScreen storyTeller batmon; do
+	assert_glibc_max "$STAGING/opt/telmi/bin/$b"
+done

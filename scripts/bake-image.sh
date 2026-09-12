@@ -95,6 +95,15 @@ cp -f "$DTB" "$MBOOT/rk3326-odroidgo2-linux.dtb"
 cp -f "$DTB" "$MBOOT/rk3326-odroidgo2-linux-v11.dtb"
 cp -f "$DTB" "$MBOOT/rk-kernel.dtb"
 cp -f "$VENDOR/logo.bmp" "$MBOOT/logo.bmp"
+if [[ -s "$STAGING/boot/low_battery.bmp" ]]; then
+	cp -f "$STAGING/boot/low_battery.bmp" "$MBOOT/low_battery.bmp"
+	cp -f "$STAGING/boot/low_battery.bmp" "$MBOOT/low_battery_b.bmp"
+fi
+if [[ -f "$STAGING/opt/telmi/res/batteryLow.png" ]]; then
+	cp -f "$STAGING/opt/telmi/res/batteryLow.png" "$MBOOT/batteryLow.png"
+elif [[ -f "$TELMIOS/res/batteryLow.png" ]]; then
+	cp -f "$TELMIOS/res/batteryLow.png" "$MBOOT/batteryLow.png"
+fi
 
 python3 - <<PY
 from pathlib import Path
@@ -156,7 +165,7 @@ fi
 cat > "$MTELMI/autorun.inf" <<'EOF'
 [autorun]
 icon  = .tmp_update/res/sdcard.ico
-label = TelmiOS-v1.10.1
+label = TelmiOS-v1.10.3
 EOF
 sed -i 's/\r$//' "$MTELMI/autorun.inf"
 ICO=""

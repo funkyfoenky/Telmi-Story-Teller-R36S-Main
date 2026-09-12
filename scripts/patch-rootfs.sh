@@ -19,7 +19,7 @@ if [[ ! -d "$ROOT/etc" ]]; then
 fi
 
 echo "==> Overlay Telmi-os $VERSION -> $ROOT"
-install -d "$ROOT/opt/soysauce/bin" "$ROOT/opt/telmi/bin" "$ROOT/opt/telmi/lib" \
+install -d "$ROOT/opt/telmi/bin" "$ROOT/opt/telmi/lib" \
 	"$ROOT/opt/telmi/res" "$ROOT/opt/telmi/telmiVersion" \
 	"$ROOT/etc/systemd/system" "$ROOT/etc/systemd/system/multi-user.target.wants" \
 	"$ROOT/etc/systemd/journald.conf.d" "$ROOT/etc/systemd/system.conf.d" \
@@ -29,9 +29,9 @@ install -d "$ROOT/opt/soysauce/bin" "$ROOT/opt/telmi/bin" "$ROOT/opt/telmi/lib" 
 cp -f "$OVERLAY/opt/telmi/bin/telmi-runtime.sh" "$ROOT/opt/telmi/bin/"
 cp -f "$OVERLAY/opt/telmi/bin/telmi-early-init.sh" "$ROOT/opt/telmi/bin/"
 cp -f "$OVERLAY/opt/telmi/bin/telmi-mount-content.sh" "$ROOT/opt/telmi/bin/"
-cp -f "$OVERLAY/opt/soysauce/bin/soysauce-telmi-stamp.sh" "$ROOT/opt/soysauce/bin/"
+cp -f "$OVERLAY/opt/telmi/bin/telmi-stamp.sh" "$ROOT/opt/telmi/bin/"
 cp -f "$OVERLAY/etc/systemd/system/telmi.service" "$ROOT/etc/systemd/system/"
-cp -f "$OVERLAY/etc/soysauce" "$ROOT/etc/soysauce"
+cp -f "$OVERLAY/etc/telmi-r36-main" "$ROOT/etc/telmi-r36-main"
 if [[ -f "$OVERLAY/etc/systemd/journald.conf.d/telmi.conf" ]]; then
 	cp -f "$OVERLAY/etc/systemd/journald.conf.d/telmi.conf" \
 		"$ROOT/etc/systemd/journald.conf.d/"
@@ -67,7 +67,7 @@ fi
 ICO_SRC=""
 for c in \
 	"$STAGING/opt/telmi/res/sdcard.ico" \
-	"$PARENT/../Telmi-R36/assets/res/sdcard.ico"
+	"$TELMIOS/vendor/telmi-r36s/assets/res/sdcard.ico"
 do
 	[[ -f "$c" ]] && ICO_SRC="$c" && break
 done
@@ -77,13 +77,13 @@ fi
 
 echo -n "$VERSION" > "$ROOT/opt/telmi/telmiVersion/image-version.txt"
 echo -n "$BUILD_ID" > "$ROOT/opt/telmi/telmiVersion/build-id.txt"
-echo -n "telmi-os" > "$ROOT/opt/telmi/telmiVersion/profile.txt"
+echo -n "telmi-r36-main" > "$ROOT/opt/telmi/telmiVersion/profile.txt"
 
-chmod +x "$ROOT/opt/telmi/bin/"*.sh "$ROOT/opt/soysauce/bin/"*.sh
+chmod +x "$ROOT/opt/telmi/bin/"*.sh
 sed -i 's/\r$//' "$ROOT/opt/telmi/bin/telmi-runtime.sh" \
 	"$ROOT/opt/telmi/bin/telmi-early-init.sh" \
 	"$ROOT/opt/telmi/bin/telmi-mount-content.sh" \
-	"$ROOT/opt/soysauce/bin/soysauce-telmi-stamp.sh" \
+	"$ROOT/opt/telmi/bin/telmi-stamp.sh" \
 	"$ROOT/etc/systemd/system/telmi.service"
 
 # BOOT ne doit pas bloquer systemd (nofail, pas de fsck).

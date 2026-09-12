@@ -10,7 +10,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	exit 1
 fi
 
-IMG="${1:-$OUTPUT/soysauce-${VERSION}.img}"
+IMG="${1:-$OUTPUT/telmi-r36-main-${VERSION}.img}"
 DTB="$STAGING/boot/rk3326-r36s-v30-linux.dtb"
 need() { [[ -e "$1" ]] || { echo "manque $1"; exit 1; }; }
 need "$IMG"
@@ -25,19 +25,19 @@ print("FDT magic OK", p.stat().st_size, "bytes")
 PY
 
 LOOP="$(losetup -Pf --show "$IMG")"
-trap "umount /tmp/soy-fix-boot 2>/dev/null; rmdir /tmp/soy-fix-boot 2>/dev/null; losetup -d '$LOOP'" EXIT
+trap "umount /tmp/telmi-fix-boot 2>/dev/null; rmdir /tmp/telmi-fix-boot 2>/dev/null; losetup -d '$LOOP'" EXIT
 udevadm settle 2>/dev/null || sleep 1
-mkdir -p /tmp/soy-fix-boot
-mount "${LOOP}p1" /tmp/soy-fix-boot
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-r36s-v30-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo3-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo2-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo2-linux-v11.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk-kernel.dtb
-ls -lh /tmp/soy-fix-boot/*.dtb
+mkdir -p /tmp/telmi-fix-boot
+mount "${LOOP}p1" /tmp/telmi-fix-boot
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-r36s-v30-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo3-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo2-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo2-linux-v11.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk-kernel.dtb
+ls -lh /tmp/telmi-fix-boot/*.dtb
 sync
-umount /tmp/soy-fix-boot
-rmdir /tmp/soy-fix-boot
+umount /tmp/telmi-fix-boot
+rmdir /tmp/telmi-fix-boot
 losetup -d "$LOOP"
 trap - EXIT
 gzip -kf "$IMG"

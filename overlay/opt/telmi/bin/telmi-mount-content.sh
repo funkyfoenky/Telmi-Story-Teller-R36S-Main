@@ -285,11 +285,11 @@ seed_content_tree() {
 {"audioVolumeStartup":0.5,"audioVolumeMax":1.0,"screenBrightnessStartup":0.4,"screenBrightnessMax":0.8,"screenOnInactivityTime":180,"screenOffInactivityTime":300,"musicInactivityTime":1800,"storyDisplayTiles":true,"storyDisableNightMode":false,"storyDisableTimeline":false,"musicDisableRepeatModes":false,"bootSplashscreen":""}
 EOF
 	fi
-	# Toujours réécrire : Telmi Sync exige icon + label v1.10.1
+	# Toujours réécrire : Telmi Sync exige icon + label v1.10.3
 	cat > /telmi/autorun.inf <<'EOF'
 [autorun]
 icon  = .tmp_update/res/sdcard.ico
-label = TelmiOS-v1.10.1
+label = TelmiOS-v1.10.3
 EOF
 	mkdir -p /telmi/.tmp_update/res
 	if [ -f /opt/telmi/res/sdcard.ico ]; then

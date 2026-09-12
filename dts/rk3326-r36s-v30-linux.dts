@@ -1,5 +1,5 @@
 /* rk3326-r36s-v30-linux — DTS reconstruit (dtc -I dtb) depuis le DTB
- * v30 de l'image Soysauce 0.1.0 (lecture seule). À recompiler avec le noyau 4.4.
+ * v30 d'une image de labo (lecture seule). À recompiler avec le noyau 4.4.
  * Le .dtb n'est pas versionné.
  */
 /dts-v1/;

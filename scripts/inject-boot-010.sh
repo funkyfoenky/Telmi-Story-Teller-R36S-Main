@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Remet le boot 0.1.0 (U-Boot + logo + uInitrd ArkOS) sur l'image 0.2.0.
-# Ne modifie PAS soysauce-0.1.0.img.gz (lecture seule).
+# Réécrit le boot de l'image bakée avec U-Boot / DTB / logo compilés dans ce dépôt.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
@@ -11,61 +10,62 @@ if [[ "$(id -u)" -ne 0 ]]; then
 	exit 1
 fi
 
-IMG="$OUTPUT/soysauce-${VERSION}.img"
-VENDOR="$PARENT/../Soysauce/vendor/arkos4clone"
-GZ="$PARENT/../Soysauce/output/soysauce-0.1.0.img.gz"
-HEAD="$CACHE/soysauce-010-head16.img"
-UBDIR="$CACHE/uboot-010"
+IMG="$OUTPUT/telmi-r36-main-${VERSION}.img"
+UBDIR="$STAGING/uboot"
+DTB="$STAGING/boot/rk3326-r36s-v30-linux.dtb"
+LOGO="$STAGING/boot/logo.bmp"
+LOWBATT="$STAGING/boot/low_battery.bmp"
 
-need() { [[ -e "$1" ]] || { echo "manque $1"; exit 1; }; }
+need() { [[ -e "$1" ]] || { echo "manque $1 — lancez make uboot dtb (et collect-assets pour le logo)"; exit 1; }; }
 need "$IMG"
-need "$GZ"
-need "$VENDOR/rk3326-r36s-v30-linux.dtb"
-need "$VENDOR/logo.bmp"
-
-mkdir -p "$UBDIR"
-if [[ ! -s "$HEAD" ]] || [[ "$(stat -c%s "$HEAD")" -lt 16000000 ]]; then
-	echo "==> extraire 16 MiB d'en-tête 0.1.0 (U-Boot) — lecture seule"
-	rm -f "$HEAD"
-	set +o pipefail
-	gzip -dc "$GZ" | dd of="$HEAD" bs=1M count=16 iflag=fullblock status=progress
-	set -o pipefail
-	[[ "$(stat -c%s "$HEAD")" -ge 16000000 ]] || { echo "ERREUR : en-tête 0.1.0 incomplet"; exit 1; }
+need "$UBDIR/idbloader.img"
+need "$UBDIR/uboot.img"
+need "$DTB"
+if [[ ! -s "$LOGO" ]]; then
+	PNG="$TELMIOS/vendor/telmi-r36s/assets/res/bootScreen.png"
+	need "$PNG"
+	python3 "$SCRIPT_DIR/make-logo-bmp.py" "$PNG" "$LOGO"
 fi
+need "$LOGO"
+if [[ ! -s "$LOWBATT" ]]; then
+	python3 "$SCRIPT_DIR/make-low-battery-bmp.py" "$LOWBATT"
+fi
+need "$LOWBATT"
 
-dd if="$HEAD" of="$UBDIR/idbloader.img" bs=512 skip=64 count=1024 status=none
-dd if="$HEAD" of="$UBDIR/uboot.img" bs=512 skip=16384 count=8192 status=none
-dd if="$HEAD" of="$UBDIR/trust.img" bs=512 skip=24576 count=8192 status=none
-echo "==> blobs 0.1.0"
-ls -lh "$UBDIR"
-
-echo "==> écrire U-Boot 0.1.0 dans $IMG"
+echo "==> écrire U-Boot (staging) dans $IMG"
 dd if="$UBDIR/idbloader.img" of="$IMG" conv=notrunc seek=64
 dd if="$UBDIR/uboot.img" of="$IMG" conv=notrunc seek=16384
-dd if="$UBDIR/trust.img" of="$IMG" conv=notrunc seek=24576
+if [[ -f "$UBDIR/trust.img" ]]; then
+	dd if="$UBDIR/trust.img" of="$IMG" conv=notrunc seek=24576
+fi
 
 LOOP="$(losetup -Pf --show "$IMG")"
-trap "umount /tmp/soy-fix-boot 2>/dev/null; rmdir /tmp/soy-fix-boot 2>/dev/null; losetup -d '$LOOP'" EXIT
+trap "umount /tmp/telmi-fix-boot 2>/dev/null; rmdir /tmp/telmi-fix-boot 2>/dev/null; losetup -d '$LOOP'" EXIT
 udevadm settle 2>/dev/null || sleep 1
-mkdir -p /tmp/soy-fix-boot
-mount "${LOOP}p1" /tmp/soy-fix-boot
+mkdir -p /tmp/telmi-fix-boot
+mount "${LOOP}p1" /tmp/telmi-fix-boot
 
-DTB="$VENDOR/rk3326-r36s-v30-linux.dtb"
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-r36s-v30-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo3-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo2-linux.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk3326-odroidgo2-linux-v11.dtb
-cp -f "$DTB" /tmp/soy-fix-boot/rk-kernel.dtb
-cp -f "$VENDOR/logo.bmp" /tmp/soy-fix-boot/logo.bmp
-# Ne PAS copier l'uInitrd ArkOS (modules d'un autre noyau = hang).
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-r36s-v30-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo3-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo2-linux.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk3326-odroidgo2-linux-v11.dtb
+cp -f "$DTB" /tmp/telmi-fix-boot/rk-kernel.dtb
+cp -f "$LOGO" /tmp/telmi-fix-boot/logo.bmp
+if [[ -s "$LOWBATT" ]]; then
+	cp -f "$LOWBATT" /tmp/telmi-fix-boot/low_battery.bmp
+	cp -f "$LOWBATT" /tmp/telmi-fix-boot/low_battery_b.bmp
+fi
+if [[ -f "$STAGING/opt/telmi/res/batteryLow.png" ]]; then
+	cp -f "$STAGING/opt/telmi/res/batteryLow.png" /tmp/telmi-fix-boot/batteryLow.png
+fi
 
 echo "==> BOOT"
-ls -lh /tmp/soy-fix-boot/Image /tmp/soy-fix-boot/logo.bmp /tmp/soy-fix-boot/*.dtb /tmp/soy-fix-boot/boot.ini
+ls -lh /tmp/telmi-fix-boot/Image /tmp/telmi-fix-boot/logo.bmp /tmp/telmi-fix-boot/*.dtb /tmp/telmi-fix-boot/boot.ini
 sync
-umount /tmp/soy-fix-boot
-rmdir /tmp/soy-fix-boot
+umount /tmp/telmi-fix-boot
+rmdir /tmp/telmi-fix-boot
 losetup -d "$LOOP"
 trap - EXIT
 gzip -kf "$IMG"
-echo "OK  boot 0.1.0 + logo + DTB vendor sur $IMG"
+echo "OK  U-Boot + logo + DTB (sources locales) sur $IMG"
 ls -lh "$IMG" "$IMG.gz"

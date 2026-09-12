@@ -1,0 +1,14 @@
+[Unit]
+Description=Dump dmesg on root ext4 (V20 diag)
+DefaultDependencies=no
+After=sysinit.target
+Before=telmi.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/telmi/bin/telmi-dump-dmesg.sh
+RemainAfterExit=yes
+TimeoutStartSec=15
+
+[Install]
+WantedBy=sysinit.target

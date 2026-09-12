@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — type2 vanilla + broken-cd seulement (on garde cd-gpios).
+ * Pas de non-removable, pas de delete UHS, pas de charge-animation off.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-type2-bcd";
+};
+
+&sdmmc {
+	broken-cd;
+};

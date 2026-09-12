@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — DTB 4.4 type2-with-amp SANS autre patch.
+ * U-Boot / LED / DSI inchangés. Si ça ramène logo ou LED, le boot charge.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-type2-with-amp-linux.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-type2-vanilla";
+};

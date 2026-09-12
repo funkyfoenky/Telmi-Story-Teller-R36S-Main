@@ -297,12 +297,24 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		bool forceRefreshScreen = false;
 
-		if (app_shutdown_isShowed())
+		if (app_overlay_isShowed())
 			autosleep_keepAwake();
 		else if (autosleep_isSleepingTime())
 			goto exit_loop;
 
+		if (!app_overlay_isShowed() && app_battery_shouldShutdown()) {
+			app_battery_low_show();
+			display_setScreen(true);
+			fprintf(stderr, "[telmi] battery too low (mv=%d pct=%d)\n",
+				app_battery_getVoltageMv(), app_battery_getPercentage());
+			fflush(stderr);
+			forceRefreshScreen = true;
+		}
+		if (app_battery_low_holdExpired())
+			goto exit_loop;
+
 		if (startPowerPressed && !app_shutdown_isShowed() &&
+		    !app_battery_low_isShowed() &&
 		    (SDL_GetTicks() - startPowerPressedMs) >= 1000) {
 			startPowerPressed = false;
 			app_shutdown_show();
@@ -315,13 +327,13 @@ int main(int argc, char *argv[]) {
 		forceRefreshScreen = applock_checkLock() || forceRefreshScreen;
 		forceRefreshScreen = app_volume_checkDisplay() || forceRefreshScreen;
 		forceRefreshScreen = app_brightness_checkDisplay() || forceRefreshScreen;
-		if (!app_shutdown_isShowed())
+		if (!app_overlay_isShowed())
 			app_update();
 		audio_flushPendingSeek();
 
 		bool have_input = (synth_code >= 0);
 		if (!have_input && input_count > 0) {
-			int wait_ms = app_shutdown_isShowed() ? 50 : 0;
+			int wait_ms = app_overlay_isShowed() ? 50 : 0;
 
 			if (poll(fds, input_count, wait_ms) > 0) {
 				int n, i;
@@ -363,6 +375,8 @@ int main(int argc, char *argv[]) {
 					}
 				}
 				/* Power encore enfoncé : ignorer, ne pas éteindre. */
+			} else if (app_battery_low_isShowed()) {
+				/* Extinction automatique : ignorer les touches. */
 			} else
 			switch (ev.value) {
 				case PRESSED:
@@ -420,7 +434,9 @@ int main(int argc, char *argv[]) {
 					if (HW_BTN_IS_START(ev.code)) {
 						fprintf(stderr, "[telmi] START/pause code=%u\n", ev.code);
 						fflush(stderr);
-						app_pause();
+						if (time_wait()) {
+							app_pause();
+						}
 						break;
 					}
 					if (HW_BTN_IS_MENU(ev.code)) {
@@ -436,28 +452,48 @@ int main(int argc, char *argv[]) {
 						case HW_BTN_POWER :
 							break;
 						case HW_BTN_LEFT :
-							app_previous();
+							if (time_wait()) {
+								app_previous();
+							}
 							break;
 						case HW_BTN_RIGHT :
-							app_next();
+							if (time_wait()) {
+								app_next();
+							}
 							break;
 						case HW_BTN_UP :
-							app_up();
+							if (time_wait()) {
+								app_up();
+							}
 							break;
 						case HW_BTN_DOWN :
-							app_down();
+							if (time_wait()) {
+								app_down();
+							}
 							break;
 						case HW_BTN_A :
 						case HW_BTN_B :
-							app_ok();
+							if (time_wait()) {
+								app_ok();
+							}
 							break;
 						case HW_BTN_Y :
 						case HW_BTN_X :
-							app_home();
+							if (time_wait()) {
+								app_home();
+							}
 							break;
 						case HW_BTN_L1 :
-						case HW_BTN_R1 :
+							if (!isMenuPressed && time_wait()) {
+								app_randomChoice();
+							}
+							break;
 						case HW_BTN_L2 :
+							if (!isMenuPressed && time_wait()) {
+								app_randomStory();
+							}
+							break;
+						case HW_BTN_R1 :
 						case HW_BTN_R2 :
 						case HW_BTN_SELECT :
 						case HW_BTN_SELECT_ALT :
@@ -502,8 +538,8 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (app_shutdown_isShowed()) {
-			if (forceRefreshScreen)
+		if (app_overlay_isShowed()) {
+			if (forceRefreshScreen || app_battery_low_isShowed())
 				video_applyToVideo();
 		} else if (forceRefreshScreen) {
 			app_forceRefreshScreen();

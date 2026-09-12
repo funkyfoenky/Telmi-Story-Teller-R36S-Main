@@ -15,24 +15,37 @@ fi
 CROSS="$(kernel_cross)"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
+# U-Boot 2017 (odroidgoa) ne boot pas s'il est compilé avec gcc 13.
+# 0.3.8 a brické des consoles (écran noir rétroéclairé, pas de logo) pour ça.
+if ! p="$(linaro_prefix 2>/dev/null)"; then
+	echo "ERREUR : gcc-linaro 6.3.1 requis pour make uboot (pas le gcc distro)."
+	echo "  Lancez : bash scripts/setup-toolchain.sh"
+	echo "  En attendant, utilisez staging/uboot-0.3.7-known-good (bootloader connu bon)."
+	exit 1
+fi
+ver="$("${p}gcc" -dumpversion 2>/dev/null || true)"
+case "$ver" in
+	6.*) ;;
+	*)
+		echo "ERREUR : ${p}gcc est gcc $ver — U-Boot odroidgoa exige Linaro 6.x"
+		exit 1
+		;;
+esac
+
 # make.sh odroidgoa exige Linaro à un chemin relatif figé.
 PRE_ROOT="$CACHE/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu"
 PRE_BIN="$PRE_ROOT/bin"
 mkdir -p "$PRE_BIN"
-echo "==> toolchain pour make.sh -> $PRE_BIN"
-if p="$(linaro_prefix 2>/dev/null)"; then
-	for f in "${p}"*; do
-		[[ -e "$f" ]] && ln -sfn "$f" "$PRE_BIN/$(basename "$f")"
-	done
-else
-	for t in gcc g++ as ld ar nm objcopy objdump strip ranlib size addr2line cpp readelf strings elfedit gcov gprof gcc-ar gcc-nm gcc-ranlib; do
-		src="$(command -v aarch64-linux-gnu-$t || true)"
-		[[ -n "$src" ]] && ln -sfn "$src" "$PRE_BIN/aarch64-linux-gnu-$t"
-	done
-fi
-mkdir -p "$PARENT/third_party/prebuilts/gcc/linux-x86/aarch64"
+echo "==> toolchain pour make.sh -> $PRE_BIN (${p}gcc $ver)"
+for f in "${p}"*; do
+	[[ -e "$f" ]] && ln -sfn "$f" "$PRE_BIN/$(basename "$f")"
+done
+mkdir -p "$CACHE/prebuilts/gcc/linux-x86/aarch64"
 ln -sfn "$PRE_ROOT" \
-	"$PARENT/third_party/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu"
+	"$CACHE/prebuilts/gcc/linux-x86/aarch64/gcc-linaro-6.3.1-2017.05-x86_64_aarch64-linux-gnu"
+# make.sh cherche ../prebuilts depuis third_party/u-boot (pas $CACHE).
+mkdir -p "$TELMIOS/third_party"
+ln -sfn "$CACHE/prebuilts" "$TELMIOS/third_party/prebuilts"
 
 cd "$UBOOT"
 # gcc 13 : u-boot 2017 traite tous les warnings en erreur.

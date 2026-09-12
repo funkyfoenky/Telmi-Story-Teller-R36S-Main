@@ -75,10 +75,10 @@ rm -rf "$ROOTFS_DIR/var/lib/apt/lists/"* \
 	"$ROOTFS_DIR/usr/share/info/"* \
 	"$ROOTFS_DIR/var/cache/apt/archives/"*.deb 2>/dev/null || true
 
-echo "soysauce" > "$ROOTFS_DIR/etc/hostname"
+echo "telmi-r36-main" > "$ROOTFS_DIR/etc/hostname"
 cat > "$ROOTFS_DIR/etc/hosts" <<'EOF'
 127.0.0.1	localhost
-127.0.1.1	soysauce
+127.0.1.1	telmi-r36-main
 ::1		localhost ip6-localhost ip6-loopback
 EOF
 

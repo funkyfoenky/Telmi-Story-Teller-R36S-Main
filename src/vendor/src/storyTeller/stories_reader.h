@@ -352,7 +352,7 @@ bool stories_nightMode_addToPlaylist(void) {
 
 void stories_nightMode_play(void) {
     callback_stories_audio_hook = callback_stories_nightMode;
-    audio_play_path(storiesNightModePlaylist[storiesNightModeIndex], storyTime);
+    audio_play_path(storiesNightModePlaylist[storiesNightModeIndex], storyTime, true);
 }
 
 void stories_nightMode_resume(void) {
@@ -676,7 +676,7 @@ void stories_screenUpdate(void) {
     long int cTime = get_time();
     if (cTime != storyScreenUpdateTime) {
         storyScreenUpdateTime = cTime;
-        bool isBlackScreen = !applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_shutdown_isShowed();
+        bool isBlackScreen = !applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_overlay_isShowed();
         if (isBlackScreen && cTime > storyScreenEnableEndTime) {
             if (storyScreenEnabled) {
                 /* Page illustree : quitter l'overlay et restaurer l'image */
@@ -791,7 +791,7 @@ void stories_readStage(void) {
     sprintf(story_image_path, "%s%s/images/", STORIES_RESOURCES, storiesList[storyIndex]);
 
     if (isAudioDefined) {
-        audio_play(story_audio_path, cJSON_GetStringValue(audioJson), storyTime);
+        audio_play(story_audio_path, cJSON_GetStringValue(audioJson), storyTime, !isImageDefined);
         if (storyAutoplay) {
             callback_stories_audio_hook = callback_stories_autoplay;
             storyOkAction = cJSON_IsTrue(cJSON_GetObjectItem(controlJson, "ok"));
@@ -830,7 +830,7 @@ void stories_readStage(void) {
             /* Audio sans image : mode timeline "continu" (ecran off jusqu'a interaction) */
             storyShowTimeline = storyTimelineAllowed;
             video_displayBlackScreen();
-            if (!applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_shutdown_isShowed()) {
+            if (!applock_isLockRecentlyChanged() && !applock_isUnlocking() && !app_volume_isShowed() && !app_brightness_isShowed() && !app_overlay_isShowed()) {
                 display_setScreen(false);
             }
             if (storiesNightModeEnabled) {
@@ -1069,7 +1069,7 @@ void stories_title(void) {
 
     char story_path[STR_MAX];
     sprintf(story_path, "%s%s/", STORIES_RESOURCES, storiesList[storyIndex]);
-    audio_play(story_path, "title.mp3", storyTime);
+    audio_play(story_path, "title.mp3", storyTime, false);
     callback_stories_audio_hook = NULL;
 
     storyScreenEnabled = true;
@@ -1197,8 +1197,45 @@ void stories_previous(void) {
     }
 }
 
+void stories_randomStory(void) {
+    if (storiesCount == 0) {
+        return;
+    }
+    if (storyActionKey[0] != '\0' || storyAutoplay || storiesNightModePlaying) {
+        return;
+    }
+    if (storiesCount == 1) {
+        storyIndex = 0;
+    } else {
+        int newIndex;
+        do {
+            newIndex = rand() % storiesCount;
+        } while (newIndex == storyIndex);
+        storyIndex = newIndex;
+    }
+    stories_title();
+}
+
+void stories_randomChoice(void) {
+    if (storiesCount == 0) {
+        return;
+    }
+    if (storyActionKey[0] == '\0' || storyAutoplay || storiesNightModePlaying) {
+        return;
+    }
+    if (storyActionOptionsCount <= 1) {
+        return;
+    }
+    int newOption;
+    do {
+        newOption = rand() % storyActionOptionsCount;
+    } while (newOption == storyActionOptionIndex);
+    storyActionOptionIndex = newOption;
+    stories_readAction(0);
+}
+
 void stories_forceRefreshScreen(void) {
-    if (applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_shutdown_isShowed()) {
+    if (applock_isLockRecentlyChanged() || applock_isUnlocking() || app_volume_isShowed() || app_brightness_isShowed() || app_overlay_isShowed()) {
         display_setScreen(true);
     } else {
         display_setScreen(storyScreenEnabled);

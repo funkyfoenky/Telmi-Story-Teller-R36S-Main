@@ -74,6 +74,74 @@ EOF
 	return 0
 }
 
+read_sys_int() {
+	[ -r "$1" ] || return 1
+	_v=$(tr -d '[:space:]' < "$1" 2>/dev/null) || return 1
+	case "$_v" in
+		''|*[!0-9]*) return 1 ;;
+	esac
+	echo "$_v"
+}
+
+battery_is_charging() {
+	_st=$(tr -d '[:space:]' < /sys/class/power_supply/battery/status 2>/dev/null)
+	case "$_st" in Charging|Full) return 0 ;; esac
+	[ "$(read_sys_int /sys/class/power_supply/ac/online)" = 1 ] && return 0
+	[ "$(read_sys_int /sys/class/power_supply/usb/online)" = 1 ] && return 0
+	return 1
+}
+
+battery_voltage_mv() {
+	for _p in /sys/class/power_supply/battery/voltage_now \
+		/sys/class/power_supply/rk817-battery/voltage_now; do
+		_v=$(read_sys_int "$_p") || continue
+		if [ "$_v" -gt 100000 ]; then
+			echo $((_v / 1000))
+		else
+			echo "$_v"
+		fi
+		return 0
+	done
+	echo 0
+}
+
+show_low_battery_and_halt() {
+	log "batterie trop faible — ecran puis extinction"
+	take_display
+	echo 0 > /sys/class/graphics/fb0/blank 2>/dev/null || true
+	if [ -x "$TELMI_ROOT/bin/bootScreen" ]; then
+		"$TELMI_ROOT/bin/bootScreen" LowBatt >> /boot/telmi-runtime.log 2>&1 || true
+	fi
+	touch /tmp/.offOrder 2>/dev/null || true
+	sync 2>/dev/null || true
+	systemctl poweroff --force 2>/dev/null || poweroff -f 2>/dev/null || halt -f
+	exit 0
+}
+
+handle_low_battery() {
+	if battery_is_charging; then
+		log "chargeur present — boot autorise"
+		return 0
+	fi
+	_i=0
+	_mv=0
+	while [ "$_i" -lt 8 ]; do
+		_mv=$(battery_voltage_mv)
+		[ "$_mv" -gt 2000 ] && break
+		sleep 0.3
+		_i=$((_i + 1))
+	done
+	[ "$_mv" -gt 2000 ] || return 0
+	_pct=$(read_sys_int /sys/class/power_supply/battery/capacity || echo 100)
+	log "battery check mv=$_mv pct=$_pct"
+	if [ "$_mv" -lt 3530 ]; then
+		show_low_battery_and_halt
+	fi
+	if [ "$_pct" -le 2 ] && [ "$_mv" -lt 3600 ]; then
+		show_low_battery_and_halt
+	fi
+}
+
 init_display() {
 	echo -n "640x480" > /tmp/screen_resolution
 	echo -n "283" > /tmp/deviceModel
@@ -126,6 +194,7 @@ main() {
 	runtime_log "[telmi] runtime pid $$ telmi-os"
 	init_display
 	take_display
+	handle_low_battery
 	# Splash en fond : rester mmap'é jusqu'à ce que storyTeller prenne fb0.
 	show_telmi_splash &
 	_splash_pid=$!

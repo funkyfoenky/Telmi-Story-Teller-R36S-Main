@@ -140,7 +140,7 @@ static uint8_t *load_png_rgb(const char *path, int *out_w, int *out_h)
 	return rgb;
 }
 
-static const char *find_splash(int is_end)
+static const char *find_splash(int mode)
 {
 	static const char *boot_paths[] = {
 		"/opt/telmi/res/bootScreen.png",
@@ -154,9 +154,18 @@ static const char *find_splash(int is_end)
 		"/mnt/SDCARD/.tmp_update/res/Screen_Off.png",
 		NULL,
 	};
-	const char **p = is_end ? end_paths : boot_paths;
+	static const char *low_paths[] = {
+		"/opt/telmi/res/batteryLow.png",
+		"/boot/batteryLow.png",
+		NULL,
+	};
+	const char **p = boot_paths;
 	int i;
 
+	if (mode == 1)
+		p = end_paths;
+	else if (mode == 2)
+		p = low_paths;
 	for (i = 0; p[i]; i++) {
 		if (access(p[i], R_OK) == 0)
 			return p[i];
@@ -224,7 +233,7 @@ static void blit_rgb(char *fbp, const struct fb_fix_screeninfo *finfo,
 	}
 }
 
-static int show_splash(int is_end)
+static int show_splash(int mode)
 {
 	struct fb_var_screeninfo vinfo;
 	struct fb_fix_screeninfo finfo;
@@ -233,6 +242,8 @@ static int show_splash(int is_end)
 	const char *path;
 	uint8_t *rgb = NULL;
 	int iw = 0, ih = 0;
+	int is_end = (mode == 1);
+	int is_low = (mode == 2);
 
 	fd = open("/dev/fb0", O_RDWR);
 	if (fd < 0) {
@@ -260,7 +271,7 @@ static int show_splash(int is_end)
 		return 1;
 	}
 
-	path = find_splash(is_end);
+	path = find_splash(mode);
 	if (path) {
 		char buf[160];
 		snprintf(buf, sizeof(buf), "png %s", path);
@@ -275,12 +286,23 @@ static int show_splash(int is_end)
 	} else if (is_end) {
 		fill_solid(fbp, &finfo, &vinfo, 1);
 		step("fb black OK (no png)");
+	} else if (is_low) {
+		fill_solid(fbp, &finfo, &vinfo, 1);
+		step("fb black OK (low battery, no png)");
 	} else {
 		fill_solid(fbp, &finfo, &vinfo, 0);
 		step("fb solid OK (no png)");
 	}
 
 	msync(fbp, finfo.smem_len, MS_SYNC);
+
+	if (is_low) {
+		step("bootScreen LowBatt hold fb0");
+		sleep(4);
+		step("bootScreen LowBatt done");
+		/* Ne pas munmap : ça éteint le panneau avant le poweroff. */
+		return 0;
+	}
 
 	/* Garder le mmap : le relâcher éteint le panneau RK (boot ET sleep). */
 	step(is_end ? "bootScreen End hold fb0" : "bootScreen hold fb0");
@@ -294,7 +316,12 @@ static int show_splash(int is_end)
 
 int main(int argc, char *argv[])
 {
-	int is_end = (argc > 1 && strcmp(argv[1], "End") == 0);
+	int mode = 0;
+
+	if (argc > 1 && strcmp(argv[1], "End") == 0)
+		mode = 1;
+	else if (argc > 1 && strcmp(argv[1], "LowBatt") == 0)
+		mode = 2;
 
 	signal(SIGTERM, SIG_DFL);
 	signal(SIGINT, SIG_DFL);
@@ -302,9 +329,10 @@ int main(int argc, char *argv[])
 	unlink("/boot/bootScreen.steps");
 	step("bootScreen fb start");
 	unblank();
-	show_splash(is_end);
+	show_splash(mode);
 
-	if (argc > 1 && strcmp(argv[1], "Boot") != 0)
+	if (argc > 1 && strcmp(argv[1], "Boot") != 0 &&
+	    strcmp(argv[1], "LowBatt") != 0)
 		temp_flag_set(".offOrder", false);
 
 	step("bootScreen OK");

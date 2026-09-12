@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * COPIE exp — meme MMC que rootcd, panel type2 natif (reset PD3 / enable PA3).
+ * A n'activer QUE si rootcd a produit un telmi-runtime.log.
+ */
+/dts-v1/;
+
+#include "rk3326-r36s-v20-exp-rootcd.dts"
+
+/ {
+	model = "GameConsole R36S V20 exp-type2panel";
+};
+
+&dsi {
+	status = "okay";
+};

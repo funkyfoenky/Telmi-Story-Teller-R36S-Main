@@ -7,7 +7,7 @@ include $(ROOT)/config.mk
 STAGING ?= $(ROOT)/../../staging/opt/telmi/bin
 VENDOR := $(ROOT)/vendor
 
-CFLAGS += -DSOYSAUCE_FB_PRESENT \
+CFLAGS += -DTELMI_FB_PRESENT \
 	-I$(ROOT) \
 	-I$(ROOT)/storyTeller \
 	-I$(VENDOR)/src/storyTeller \
@@ -44,7 +44,7 @@ storyTeller: dirs $(ROOT)/storyTeller/storyTeller.c \
 	$(STRIP) $(STAGING)/storyTeller
 
 batmon: $(ROOT)/batmon_simple.c
-	$(CC) $(CFLAGS) -o $(STAGING)/batmon $(ROOT)/batmon_simple.c
+	$(CC) $(CFLAGS) -o $(STAGING)/batmon $(ROOT)/batmon_simple.c $(EXTRA_LDFLAGS)
 	$(STRIP) $(STAGING)/batmon
 
 clean:
