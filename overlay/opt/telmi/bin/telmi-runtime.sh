@@ -134,10 +134,10 @@ handle_low_battery() {
 	[ "$_mv" -gt 2000 ] || return 0
 	_pct=$(read_sys_int /sys/class/power_supply/battery/capacity || echo 100)
 	log "battery check mv=$_mv pct=$_pct"
-	if [ "$_mv" -lt 3530 ]; then
+	if [ "$_mv" -lt 3150 ]; then
 		show_low_battery_and_halt
 	fi
-	if [ "$_pct" -le 2 ] && [ "$_mv" -lt 3600 ]; then
+	if [ "$_pct" -le 5 ] && [ "$_mv" -lt 3600 ]; then
 		show_low_battery_and_halt
 	fi
 }

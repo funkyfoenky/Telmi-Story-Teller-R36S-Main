@@ -5,9 +5,10 @@
 #include "system/battery.h"
 #include "SDL2/SDL.h"
 
-/* Aligné sur U-Boot Odroid/ArkOS (3.53 V) — en dessous le PMIC coupe sans UI. */
-#define APP_BATTERY_CRIT_MV 3530
-#define APP_BATTERY_CRIT_PCT 2
+/* 3150 mV ≈ 0 % OCV R36S, au-dessus du cutoff kernel 3000 mV (UI avant PMIC).
+ * 3530 mV (U-Boot Odroid) ≈ 35 % OCV ici — trop tôt sous charge. */
+#define APP_BATTERY_CRIT_MV 3150
+#define APP_BATTERY_CRIT_PCT 5
 #define APP_BATTERY_SOC_GUARD_MV 3600
 #define APP_BATTERY_CONFIRM_MS 4000
 #define APP_BATTERY_LOW_HOLD_MS 3000
